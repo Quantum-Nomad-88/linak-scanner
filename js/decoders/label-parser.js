@@ -4,7 +4,7 @@
 
 import { extractTypeCode, normalizeLabelInput } from './type-code.js';
 
-const ITEM_NO_RE = /Item\s*(?:no|#)?\.?\s*:?\s*([0-9]{6}[-–][0-9A-Z]{2,4})/i;
+const ITEM_NO_RE = /Item\s*(?:no|#)?\.?\s*:?\s*([A-Z]{0,2}[0-9]{2,4}[-–][0-9A-Z]{3,4}[-–][0-9A-Z]{2}|[0-9]{6}[-–][0-9A-Z]{2,4})/i;
 const WO_RE = /W\s*\/\s*O\s*#?\s*(\d{7,8}[-–]\d{4})/i;
 const DATE_RE = /(?:Prod\.?\s*)?Date\.?\s*:?\s*(\d{4}[.\-/]\d{2}[.\-/]\d{2})/i;
 const MAX_LOAD_RE = /Max\s*Load\.?\s*:?\s*(.+?)(?:\n|Power\s*Rate|Duty\s*Cycle|$)/is;

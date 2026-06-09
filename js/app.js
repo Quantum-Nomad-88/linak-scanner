@@ -1,5 +1,5 @@
 import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
-import { extractTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
+import { extractTypeCode, isValidTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
 import { recognizeText, recognizeTypeCodeOnly } from './ocr.js';
 import { cropToMask, drawMaskOverlay, getMaskForMode } from './scan-frame.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
@@ -304,7 +304,7 @@ function decodeAndShow(text) {
 }
 
 function isValidCode(c) {
-  return /^\d{5}[A-Z0-9]?\+\d{6,}/.test(c) || /^\d{6}-\d{6,}/.test(c);
+  return isValidTypeCode(c);
 }
 
 function pickLabelFields(specs) {

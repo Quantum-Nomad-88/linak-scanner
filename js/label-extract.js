@@ -29,7 +29,7 @@ export function extractLabelFromOcr(blob) {
     extractTypeCode(compact) ||
     null;
 
-  const item = compact.match(/(\d{6}[-–]\d{2,4})/);
+  const item = compact.match(/(?:Item\s*(?:No|#)?\.?\s*:?\s*)?([A-Z]{0,2}\d{2,4}[-–]\d{3,4}[-–]\d{2}|\d{6}[-–]\d{2,4})/i);
   if (item) fields.itemNo = item[1].toUpperCase();
 
   const date = flat.match(/(\d{4}[.\-/]\d{2}[.\-/]\d{2})/);
