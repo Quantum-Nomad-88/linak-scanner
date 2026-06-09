@@ -1,4 +1,5 @@
 import { extractLabelFromOcr } from './label-extract.js';
+import { repairPlusTypeCode } from './decoders/type-code.js';
 
 let worker = null;
 
@@ -137,8 +138,21 @@ function pairColumns(data, imageWidth) {
       const rText = wordsToLine(rightLines[best]);
       usedRight.add(best);
       if (rText) {
+        // Detect split type code: left=72108 right=1130504A or +1130504A
+        const typeRepair = repairPlusTypeCode(
+          lText.replace(/[^A-Z0-9]/gi, ''),
+          rText.replace(/^[:+]/, '')
+        );
+        if (typeRepair) {
+          paired.push(`Type: ${typeRepair}`);
+          continue;
+        }
         const label = lText.replace(/:+$/, '').trim();
-        paired.push(`${label}: ${rText}`);
+        if (/^type$/i.test(label)) {
+          paired.push(`Type: ${rText.replace(/^[:+]/, '')}`);
+        } else {
+          paired.push(`${label}: ${rText}`);
+        }
         continue;
       }
     }

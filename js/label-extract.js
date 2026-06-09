@@ -2,7 +2,7 @@
  * Pull structured LINAK label fields out of messy OCR text.
  */
 
-import { extractTypeCode, sanitizeTypeCode } from './decoders/type-code.js';
+import { extractTypeCode, repairPlusTypeCode } from './decoders/type-code.js';
 
 /** Fix common OCR mistakes in codes */
 function fixOcrCode(s) {
@@ -23,13 +23,11 @@ export function extractLabelFromOcr(blob) {
 
   const fields = {};
 
-  // Type code — hunt in full blob
-  fields.typeCode = extractTypeCode(compact) || extractTypeCode(flat) || null;
-
-  if (!fields.typeCode) {
-    const plusGuess = compact.match(/(\d{5}[A-Z0-9]?[+\s]?\d{6,}[A-Z0-9]*)/i);
-    if (plusGuess) fields.typeCode = sanitizeTypeCode(plusGuess[1].replace(/\s/g, ''));
-  }
+  // Type code — hunt in full blob (includes OCR repair for 72108:+1130504A)
+  fields.typeCode =
+    extractTypeCode(flat) ||
+    extractTypeCode(compact) ||
+    null;
 
   const item = compact.match(/(\d{6}[-–]\d{2,4})/);
   if (item) fields.itemNo = item[1].toUpperCase();

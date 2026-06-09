@@ -1,4 +1,4 @@
-const CACHE = 'linak-specs-v6';
+const CACHE = 'linak-specs-v7';
 const ASSETS = [
   './',
   './index.html',
