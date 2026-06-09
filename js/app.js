@@ -1,5 +1,5 @@
-import { decodeMotorSpecs, getAllSupportedModels } from './decoders/engine.js';
-import { extractTypeCode, normalizeLabelInput } from './decoders/type-code.js';
+import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
+import { extractTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
 import { recognizeText } from './ocr.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
@@ -145,30 +145,44 @@ rawTextArea.addEventListener('paste', () => {
 });
 
 function decodeAndShow(text) {
-  const typeOverride = normalizeLabelInput($('#type-code-input').value);
+  const typeOverride = sanitizeTypeCode($('#type-code-input').value);
   const bodyText = normalizeLabelInput(text);
 
-  let fullText = bodyText;
+  // Direct type-code decode is most reliable (paste field or bare code)
+  const codeFromField = typeOverride && isValidCode(typeOverride) ? typeOverride : null;
+  const codeFromBody = extractTypeCode(bodyText);
+  const directCode = codeFromField || codeFromBody;
 
-  // Type override field always wins
-  if (typeOverride) {
-    fullText = `Type: ${typeOverride}\n${bodyText}`;
+  if (directCode) {
+    const fromCode = decodeByTypeCode(directCode);
+    const fromLabel = decodeMotorSpecs(bodyText);
+    currentSpecs = fromCode
+      ? { ...fromCode, ...pickLabelFields(fromLabel), confidence: Math.max(fromCode.confidence, fromLabel.confidence) }
+      : fromLabel;
   } else {
-    // Bare type code pasted alone e.g. "27210B+1130504A"
-    const bare = extractTypeCode(bodyText);
-    if (bare && bodyText.replace(/\s/g, '').toUpperCase() === bare) {
-      fullText = `Type: ${bare}`;
-    }
-  }
-
-  currentSpecs = decodeMotorSpecs(fullText);
-
-  // Fallback: decode type override directly
-  if (!currentSpecs.typeCode && typeOverride) {
-    currentSpecs = decodeMotorSpecs(`Type: ${typeOverride}`);
+    currentSpecs = decodeMotorSpecs(bodyText);
   }
 
   renderResults(currentSpecs);
+}
+
+function isValidCode(c) {
+  return /^\d{5}[A-Z0-9]?\+\d{6,}/.test(c) || /^\d{6}-\d{6,}/.test(c);
+}
+
+function pickLabelFields(specs) {
+  if (!specs) return {};
+  return {
+    itemNo: specs.itemNo,
+    workOrder: specs.workOrder,
+    productionDate: specs.productionDate,
+    maxLoadPush: specs.maxLoadPush,
+    maxLoadPull: specs.maxLoadPull,
+    maxCurrent: specs.maxCurrent,
+    dutyCycle: specs.dutyCycle,
+    voltage: specs.voltage || undefined,
+    ipRating: specs.ipRating || undefined,
+  };
 
   if (currentImageDataUrl) {
     $('#preview-img').src = currentImageDataUrl;
@@ -204,12 +218,18 @@ function renderResults(specs) {
     ['Production date', specs.productionDate],
   ];
 
+  let shown = 0;
   for (const [label, value] of fields) {
-    if (!value) continue;
+    if (value == null || value === '') continue;
+    shown++;
     const row = document.createElement('div');
     row.className = 'spec-row';
     row.innerHTML = `<span class="spec-label">${label}</span><span class="spec-value">${escapeHtml(String(value))}</span>`;
     grid.appendChild(row);
+  }
+
+  if (shown === 0) {
+    grid.innerHTML = '<p class="empty">No specs decoded. Paste type code e.g. <strong>27210B+1130504A</strong> in the field below.</p>';
   }
 
   const conf = $('#confidence');

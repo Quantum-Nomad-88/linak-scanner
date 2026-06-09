@@ -1,28 +1,28 @@
 /**
  * LINAK actuator family definitions and type-code decoders.
- * Based on public LINAK ordering code structures from user manuals / data sheets.
  */
 
-import { decodePlusTypeCode } from './plus-decode.js';
+import { decodePlusTypeCode, parsePlusTypeCode } from './plus-decode.js';
 import { carelineBuiltIn, la36BuiltIn, la12BuiltIn } from './dimensions.js';
 import { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES } from './constants.js';
+import { sanitizeTypeCode } from './type-code.js';
 
 export { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES };
 
-/**
- * Unified type-code decoder for dash (+) and plus formats.
- */
+const PREFIX_TO_FAMILY = {
+  '12': 'LA12', '18': 'LA18', '20': 'LA20', '22': 'LA22', '23': 'LA23',
+  '25': 'LA25', '27': 'LA27', '28': 'LA28', '29': 'LA29', '30': 'LA30',
+  '31': 'LA31', '32': 'LA32', '34': 'LA34', '35': 'LA35', '36': 'LA36',
+  '40': 'LA40', '42': 'LA42', '43': 'LA43', '44': 'LA44',
+};
+
 function decodeTypeCodeForFamily(typeCode, family) {
-  const parts = splitTypeCode(typeCode);
+  const clean = sanitizeTypeCode(typeCode);
+  const parts = splitTypeCode(clean);
   if (!parts) return {};
 
   if (parts.separator === '+') {
-    const decoded = decodePlusTypeCode(
-      typeCode,
-      family.strokeMin ?? 50,
-      family.strokeMax ?? 1200
-    );
-    return decoded || {};
+    return decodePlusTypeCode(clean, family.strokeMin ?? 50, family.strokeMax ?? 1200) || {};
   }
 
   const { before, after } = parts;
@@ -34,15 +34,13 @@ function decodeTypeCodeForFamily(typeCode, family) {
       [
         { strokeStart: 4, strokeLen: 3, voltageStart: 7 },
         { strokeStart: 1, strokeLen: 3, voltageStart: 4 },
-        { strokeStart: 5, strokeLen: 3, voltageStart: 8 },
       ],
       family.strokeMin,
       family.strokeMax
     );
     const motorType = before[2];
     result.motorVariant =
-      { '0': '24 V DC Standard', '1': '24 V DC Basic L1', '3': '24 V DC Fast L3' }[motorType] ||
-      result.motorVariant;
+      { '0': '24 V DC Standard', '1': '24 V DC Basic L1', '3': '24 V DC Fast L3' }[motorType] || null;
     if (after.length > 1) {
       result.brake = { '0': 'None', '1': 'Brake push', '2': 'Brake pull' }[after[1]] || null;
     }
@@ -58,316 +56,110 @@ function decodeTypeCodeForFamily(typeCode, family) {
     );
   }
 
-  if (result.strokeMm && !result.strokeSource) {
-    result.strokeSource = 'type code after dash';
-  }
-
+  if (result.strokeMm) result.strokeSource = 'type code after dash';
   return result;
 }
 
 /** @type {import('./engine.js').ActuatorFamily[]} */
 export const ACTUATOR_FAMILIES = [
-  {
-    id: 'LA12',
-    names: ['LA12'],
-    typePrefixes: ['12'],
-    strokeMin: 19,
-    strokeMax: 130,
-    strokeStep: 1,
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-    builtInDimension(stroke) {
-      return la12BuiltIn(stroke);
-    },
-  },
-  {
-    id: 'LA20',
-    names: ['LA20'],
-    typePrefixes: ['20'],
-    strokeMin: 50,
-    strokeMax: 300,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA22',
-    names: ['LA22', 'LA20'],
-    typePrefixes: ['22'],
-    altPatterns: [/22[Ee]\d{3}-\d{8}/],
-    strokeMin: 50,
-    strokeMax: 600,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA23',
-    names: ['LA23'],
-    typePrefixes: ['23'],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA25',
-    names: ['LA25'],
-    typePrefixes: ['25'],
-    strokeMin: 100,
-    strokeMax: 600,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA27',
-    names: ['LA27', 'LA27CS'],
-    typePrefixes: ['27'],
-    altPatterns: [/27\d{3}[A-Z]?\+\d{6,}/i],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA28',
-    names: ['LA28'],
-    typePrefixes: ['28'],
-    altPatterns: [/282\d{3}-\d{8}/],
-    strokeMin: 50,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA29',
-    names: ['LA29'],
-    typePrefixes: ['29'],
-    strokeMin: 50,
-    strokeMax: 250,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA30',
-    names: ['LA30'],
-    typePrefixes: ['30'],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA31',
-    names: ['LA31'],
-    typePrefixes: ['31'],
-    strokeMin: 50,
-    strokeMax: 350,
-    strokeStep: 5,
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-    builtInDimension(stroke, backFixture) {
-      return carelineBuiltIn(stroke, backFixture);
-    },
-  },
-  {
-    id: 'LA32',
-    names: ['LA32'],
-    typePrefixes: ['32'],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA34',
-    names: ['LA34'],
-    typePrefixes: ['34'],
-    strokeMin: 100,
-    strokeMax: 400,
-    strokeStep: 5,
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-  },
-  {
-    id: 'LA35',
-    names: ['LA35'],
-    typePrefixes: ['35'],
-    strokeMin: 100,
-    strokeMax: 700,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA36',
-    names: ['LA36'],
-    typePrefixes: ['36'],
-    strokeMin: 50,
-    strokeMax: 1200,
-    strokeStep: 50,
-    builtInDimension(stroke) {
-      return la36BuiltIn(stroke);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA40',
-    names: ['LA40'],
-    typePrefixes: ['40'],
-    strokeMin: 100,
-    strokeMax: 600,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA42',
-    names: ['LA42'],
-    typePrefixes: ['42'],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA43',
-    names: ['LA43', 'LA43 IC'],
-    typePrefixes: ['43'],
-    strokeMin: 100,
-    strokeMax: 400,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA44',
-    names: ['LA44', 'LA44 IC'],
-    typePrefixes: ['44'],
-    strokeMin: 100,
-    strokeMax: 400,
-    strokeStep: 5,
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-  },
-  {
-    id: 'BB3',
-    names: ['BB3'],
-    typePrefixes: [],
-    altPatterns: [/BB3/i],
-    strokeMin: 350,
-    strokeMax: 750,
-    builtInDimension(stroke) {
-      return stroke + 250;
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'BL4',
-    names: ['BL4'],
-    typePrefixes: [],
-    altPatterns: [/BL4/i],
-    strokeMin: 350,
-    strokeMax: 750,
-    builtInDimension(stroke) {
-      return stroke + 250;
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
-  {
-    id: 'LA18',
-    names: ['LA18'],
-    typePrefixes: ['18'],
-    strokeMin: 50,
-    strokeMax: 300,
-    builtInDimension(stroke, fixture) {
-      return carelineBuiltIn(stroke, fixture);
-    },
-    decodeTypeCode(typeCode) {
-      return decodeTypeCodeForFamily(typeCode, this);
-    },
-  },
+  { id: 'LA12', names: ['LA12'], typePrefixes: ['12'], strokeMin: 19, strokeMax: 130,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s) { return la12BuiltIn(s); } },
+  { id: 'LA18', names: ['LA18'], typePrefixes: ['18'], strokeMin: 50, strokeMax: 300,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA20', names: ['LA20'], typePrefixes: ['20'], strokeMin: 50, strokeMax: 300,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA22', names: ['LA22'], typePrefixes: ['22'], strokeMin: 50, strokeMax: 600,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA23', names: ['LA23'], typePrefixes: ['23'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA25', names: ['LA25'], typePrefixes: ['25'], strokeMin: 100, strokeMax: 600,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA27', names: ['LA27', 'LA27CS'], typePrefixes: ['27'], strokeMin: 100, strokeMax: 400,
+    altPatterns: [/27\d{3}[A-Z]?\+/i],
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA28', names: ['LA28'], typePrefixes: ['28'], strokeMin: 50, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA29', names: ['LA29'], typePrefixes: ['29'], strokeMin: 50, strokeMax: 250,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA30', names: ['LA30'], typePrefixes: ['30'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA31', names: ['LA31'], typePrefixes: ['31'], strokeMin: 50, strokeMax: 350,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA32', names: ['LA32'], typePrefixes: ['32'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA34', names: ['LA34'], typePrefixes: ['34'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA35', names: ['LA35'], typePrefixes: ['35'], strokeMin: 100, strokeMax: 700,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA36', names: ['LA36'], typePrefixes: ['36'], strokeMin: 50, strokeMax: 1200,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s) { return la36BuiltIn(s); } },
+  { id: 'LA40', names: ['LA40'], typePrefixes: ['40'], strokeMin: 100, strokeMax: 600,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA42', names: ['LA42'], typePrefixes: ['42'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA43', names: ['LA43', 'LA43 IC'], typePrefixes: ['43'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'LA44', names: ['LA44', 'LA44 IC'], typePrefixes: ['44'], strokeMin: 100, strokeMax: 400,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s, f) { return carelineBuiltIn(s, f); } },
+  { id: 'BB3', names: ['BB3'], typePrefixes: [], altPatterns: [/BB3/i], strokeMin: 350, strokeMax: 750,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s) { return s + 250; } },
+  { id: 'BL4', names: ['BL4'], typePrefixes: [], altPatterns: [/BL4/i], strokeMin: 350, strokeMax: 750,
+    decodeTypeCode(tc) { return decodeTypeCodeForFamily(tc, this); },
+    builtInDimension(s) { return s + 250; } },
 ];
 
-export function splitTypeCode(typeCode) {
-  if (!typeCode) return null;
-  const cleaned = typeCode.replace(/\s/g, '').toUpperCase();
+export function findFamilyByTypeCode(typeCode) {
+  const clean = sanitizeTypeCode(typeCode);
+  const parts = splitTypeCode(clean);
+  if (!parts) return null;
 
-  const dash = cleaned.match(/^([A-Z0-9]{4,6})-([A-Z0-9]{6,12})$/);
-  if (dash) return { before: dash[1], after: dash[2], full: cleaned, separator: '-' };
+  const prefix2 = parts.before.substring(0, 2);
+  const familyId = PREFIX_TO_FAMILY[prefix2];
+  if (familyId) {
+    const f = ACTUATOR_FAMILIES.find((x) => x.id === familyId);
+    if (f) return f;
+  }
 
-  const plus = cleaned.match(/^(\d{5}[A-Z0-9]?)\+(\d{6,9}[A-Z]?)$/);
-  if (plus) return { before: plus[1], after: plus[2], full: cleaned, separator: '+' };
+  for (const family of ACTUATOR_FAMILIES) {
+    if (family.altPatterns?.some((re) => re.test(clean))) return family;
+  }
 
   return null;
 }
 
-/**
- * Standard Techline after-dash decode: [spindle][stroke 3][voltage 2][ip][...]
- */
+export function splitTypeCode(typeCode) {
+  if (!typeCode) return null;
+  const cleaned = sanitizeTypeCode(typeCode);
+
+  const plus = parsePlusTypeCode(cleaned);
+  if (plus) return { ...plus, separator: '+' };
+
+  const dash = cleaned.match(/^([A-Z0-9]{4,6})-([A-Z0-9]{6,12})$/);
+  if (dash) return { before: dash[1], after: dash[2], full: cleaned, separator: '-' };
+
+  return null;
+}
+
 function pickBestStroke(after, layouts, minStroke, maxStroke) {
   let best = {};
   let bestScore = -1;
@@ -381,7 +173,7 @@ function pickBestStroke(after, layouts, minStroke, maxStroke) {
     if (candidate.voltage) score += 2;
     if (score > bestScore) {
       bestScore = score;
-      best = { ...candidate, strokeSource: 'type code after dash' };
+      best = candidate;
     }
   }
 
@@ -392,16 +184,12 @@ export function decodeStandardAfterDash(after, { strokeStart = 1, strokeLen = 3,
   const result = {};
 
   if (after.length > 0) {
-    const spindle = after[0];
-    result.spindlePitch = SPINDLE_PITCH[spindle] || null;
+    result.spindlePitch = SPINDLE_PITCH[after[0]] || null;
   }
 
   if (after.length >= strokeStart + strokeLen) {
-    const strokeStr = after.substring(strokeStart, strokeStart + strokeLen);
-    const stroke = parseInt(strokeStr, 10);
-    if (!Number.isNaN(stroke) && stroke > 0) {
-      result.strokeMm = stroke;
-    }
+    const stroke = parseInt(after.substring(strokeStart, strokeStart + strokeLen), 10);
+    if (!Number.isNaN(stroke) && stroke > 0) result.strokeMm = stroke;
   }
 
   if (after.length >= voltageStart + 2) {
@@ -410,14 +198,8 @@ export function decodeStandardAfterDash(after, { strokeStart = 1, strokeLen = 3,
   }
 
   const ipPos = voltageStart + 2;
-  if (after.length > ipPos) {
-    result.ipRating = IP_RATINGS[after[ipPos]] || null;
-  }
-
-  if (after.length > ipPos + 1) {
-    const fb = after[ipPos + 1];
-    result.feedback = FEEDBACK_TYPES[fb] || null;
-  }
+  if (after.length > ipPos) result.ipRating = IP_RATINGS[after[ipPos]] || null;
+  if (after.length > ipPos + 1) result.feedback = FEEDBACK_TYPES[after[ipPos + 1]] || null;
 
   return result;
 }
