@@ -172,9 +172,17 @@ body {
   display: none !important;
 }
 
-.camera {
-  position: relative;
-  z-index: 1;
+/* Hidden — only used as capture source; preview is drawn on canvas */
+.camera-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.camera-preview {
   display: block;
   width: 100%;
   height: min(52vh, 420px);
@@ -182,52 +190,12 @@ body {
   background: #000;
 }
 
-.camera-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  pointer-events: none;
-  transform: translateZ(0);
-}
-
-/* Giant box-shadow darkens everything outside the scan window */
-.scan-frame {
-  position: absolute;
-  left: var(--frame-x, 4%);
-  top: var(--frame-y, 30%);
-  width: var(--frame-w, 92%);
-  height: var(--frame-h, 14%);
-  border: 2px solid var(--accent2);
-  border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
-  background: transparent;
-}
-
-.scan-corner {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-color: #fff;
-  border-style: solid;
-}
-
-.scan-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
-.scan-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
-.scan-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
-.scan-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
-
-.scan-frame-hint {
-  position: absolute;
-  left: 50%;
-  top: calc(var(--frame-y, 30%) + var(--frame-h, 14%) + 12px);
-  transform: translateX(-50%);
-  width: 92%;
+.scan-frame-hint-bar {
+  margin: -0.35rem 0 0.75rem;
   text-align: center;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 1);
-  z-index: 11;
+  color: var(--accent2);
 }
 
 .preview {

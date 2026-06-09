@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.svg" />
-  <link rel="stylesheet" href="css/app.css?v=11" />
+  <link rel="stylesheet" href="css/app.css?v=12" />
 </head>
 <body>
   <header class="header">
@@ -45,17 +45,10 @@
         </div>
 
         <div id="camera-wrap" class="camera-wrap hidden">
-          <video id="camera-video" class="camera" playsinline autoplay muted></video>
-          <div id="camera-overlay" class="camera-overlay" aria-hidden="true">
-            <div id="scan-frame" class="scan-frame">
-              <span class="scan-corner tl"></span>
-              <span class="scan-corner tr"></span>
-              <span class="scan-corner bl"></span>
-              <span class="scan-corner br"></span>
-            </div>
-            <p id="scan-frame-hint" class="scan-frame-hint">Align the Type code in the box</p>
-          </div>
+          <video id="camera-video" class="camera-source" playsinline autoplay muted></video>
+          <canvas id="camera-preview" class="camera-preview" aria-label="Camera preview with scan guide"></canvas>
         </div>
+        <p id="scan-frame-hint" class="scan-frame-hint-bar hidden">Align the Type code in the box</p>
         <canvas id="capture-canvas" class="hidden"></canvas>
 
         <div class="btn-row">
@@ -170,7 +163,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=10').catch(function (err) {
+    import('./js/app.js?v=12').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

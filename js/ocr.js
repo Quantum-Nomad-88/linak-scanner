@@ -1,5 +1,5 @@
 import { extractLabelFromOcr } from './label-extract.js';
-import { extractTypeCode, repairPlusTypeCode } from './decoders/type-code.js';
+import { extractTypeCode, repairPlusTypeCode, sanitizeTypeCode, isValidTypeCode } from './decoders/type-code.js';
 
 let worker = null;
 
@@ -51,6 +51,61 @@ function enhanceCanvas(source) {
   }
   ctx.putImageData(img, 0, 0);
   return out;
+}
+
+function binarizeCanvas(source, threshold = 135) {
+  const out = document.createElement('canvas');
+  out.width = source.width;
+  out.height = source.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(source, 0, 0);
+  const img = ctx.getImageData(0, 0, out.width, out.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const v = g >= threshold ? 255 : 0;
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+function scoreTypeCode(code) {
+  if (!isValidTypeCode(code)) return 0;
+  let score = 40;
+  if (/\+1130\d{3}A?$/i.test(code)) score += 35;
+  if (/^\d{5}B\+/i.test(code)) score += 15;
+  if (code.length >= 16) score += 10;
+  if (code.startsWith('27')) score += 10;
+  return score;
+}
+
+function bestTypeCodeFromBlobs(blobs) {
+  const seen = new Set();
+  const candidates = [];
+
+  const add = (code) => {
+    const clean = sanitizeTypeCode(code || '');
+    if (!clean || seen.has(clean)) return;
+    seen.add(clean);
+    candidates.push(clean);
+  };
+
+  for (const blob of blobs) {
+    if (!blob) continue;
+    add(extractTypeCode(blob));
+
+    const compact = blob.replace(/\s/g, '').toUpperCase();
+    const split = compact.match(/(\d{4,7})[:+B8]?(\d{6,}[A-Z0-9]*)/);
+    if (split) add(repairPlusTypeCode(split[1], split[2]));
+
+    const digitsOnly = compact.replace(/[^0-9+A-Z]/g, '');
+    const joined = digitsOnly.match(/^(\d{5,6}[A-Z]?)(\d{6,}[A-Z0-9]*)$/);
+    if (joined) add(repairPlusTypeCode(joined[1], joined[2]));
+  }
+
+  candidates.sort((a, b) => scoreTypeCode(b) - scoreTypeCode(a));
+  return candidates[0] || null;
 }
 
 function cropCanvas(source, x0, y0, x1, y1) {
@@ -180,32 +235,45 @@ async function ocrCanvas(canvas, psm) {
 /**
  * OCR optimised for a cropped type-code line only.
  */
-export async function recognizeTypeCodeOnly(image) {
-  if (!(image instanceof HTMLCanvasElement)) {
-    const data = await ocrCanvas(image, Tesseract.PSM.SINGLE_LINE);
-    const code = extractTypeCode(data.text || '');
-    return makeTypeCodeResult(code, data.text || '');
-  }
-
-  const upscaled = upscaleCanvas(image, 2400);
-  const enhanced = enhanceCanvas(upscaled);
+async function ocrTypeCodeImage(canvas, w) {
   const blobs = [];
-
-  const w = await getWorker();
-
-  for (const psm of [Tesseract.PSM.SINGLE_LINE, Tesseract.PSM.SINGLE_BLOCK]) {
+  for (const psm of [Tesseract.PSM.SINGLE_LINE, Tesseract.PSM.SINGLE_BLOCK, Tesseract.PSM.RAW_LINE]) {
+    if (!psm) continue;
     await w.setParameters({
       tessedit_pageseg_mode: psm,
       tessedit_char_whitelist: TYPE_CODE_WHITELIST,
     });
-    const { data } = await w.recognize(enhanced);
+    const { data } = await w.recognize(canvas);
     if (data.text?.trim()) blobs.push(data.text.trim());
+  }
+  return blobs;
+}
+
+export async function recognizeTypeCodeOnly(image) {
+  if (!(image instanceof HTMLCanvasElement)) {
+    const data = await ocrCanvas(image, Tesseract.PSM.SINGLE_LINE);
+    const code = bestTypeCodeFromBlobs([data.text || '']);
+    return makeTypeCodeResult(code, data.text || '');
+  }
+
+  const upscaled = upscaleCanvas(image, 2800);
+  const variants = [
+    enhanceCanvas(upscaled),
+    binarizeCanvas(upscaled, 130),
+    binarizeCanvas(enhanceCanvas(upscaled), 150),
+  ];
+
+  const w = await getWorker();
+  const blobs = [];
+
+  for (const variant of variants) {
+    blobs.push(...await ocrTypeCodeImage(variant, w));
   }
 
   await w.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
 
   const rawBlob = blobs.join('\n');
-  const code = extractTypeCode(rawBlob) || extractTypeCode(blobs.join(''));
+  const code = bestTypeCodeFromBlobs(blobs);
   return makeTypeCodeResult(code, rawBlob);
 }
 

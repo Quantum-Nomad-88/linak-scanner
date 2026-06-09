@@ -1,7 +1,7 @@
 import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
 import { extractTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
 import { recognizeText, recognizeTypeCodeOnly } from './ocr.js';
-import { cropToMask, getMaskForMode } from './scan-frame.js';
+import { cropToMask, drawMaskOverlay, getMaskForMode } from './scan-frame.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -33,9 +33,9 @@ function showView(name) {
 
 // --- Camera / file ---
 const video = $('#camera-video');
+const previewCanvas = $('#camera-preview');
 const canvas = $('#capture-canvas');
 const cameraWrap = $('#camera-wrap');
-const scanFrame = $('#scan-frame');
 const scanFrameHint = $('#scan-frame-hint');
 const fileInput = $('#file-input');
 const cameraBtn = $('#camera-btn');
@@ -43,6 +43,7 @@ const galleryBtn = $('#gallery-btn');
 const captureBtn = $('#capture-btn');
 const stopCameraBtn = $('#stop-camera-btn');
 let stream = null;
+let previewRaf = null;
 
 function getScanMode() {
   const checked = document.querySelector('input[name="scan-mode"]:checked');
@@ -50,12 +51,8 @@ function getScanMode() {
 }
 
 function applyScanFrameUi() {
-  if (!cameraWrap || !scanFrameHint) return;
+  if (!scanFrameHint) return;
   const mask = getMaskForMode(getScanMode());
-  cameraWrap.style.setProperty('--frame-x', `${mask.x * 100}%`);
-  cameraWrap.style.setProperty('--frame-y', `${mask.y * 100}%`);
-  cameraWrap.style.setProperty('--frame-w', `${mask.w * 100}%`);
-  cameraWrap.style.setProperty('--frame-h', `${mask.h * 100}%`);
   scanFrameHint.textContent = mask.label;
 }
 
@@ -124,6 +121,8 @@ async function startCamera() {
     });
 
     await video.play();
+    startPreviewLoop();
+    scanFrameHint?.classList.remove('hidden');
   } catch (err) {
     console.error('Camera error:', err);
     showToast(err?.name === 'NotAllowedError'
@@ -133,13 +132,47 @@ async function startCamera() {
   }
 }
 
+function stopPreviewLoop() {
+  if (previewRaf) {
+    cancelAnimationFrame(previewRaf);
+    previewRaf = null;
+  }
+}
+
+function startPreviewLoop() {
+  stopPreviewLoop();
+  if (!previewCanvas || !video) return;
+
+  const paint = () => {
+    if (!stream) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (vw > 0 && vh > 0) {
+      if (previewCanvas.width !== vw || previewCanvas.height !== vh) {
+        previewCanvas.width = vw;
+        previewCanvas.height = vh;
+      }
+      const ctx = previewCanvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, vw, vh);
+      drawMaskOverlay(ctx, vw, vh, getMaskForMode(getScanMode()));
+    }
+
+    previewRaf = requestAnimationFrame(paint);
+  };
+
+  previewRaf = requestAnimationFrame(paint);
+}
+
 function stopCamera() {
+  stopPreviewLoop();
   if (stream) {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
   if (video) video.srcObject = null;
   cameraWrap?.classList.add('hidden');
+  scanFrameHint?.classList.add('hidden');
   captureBtn?.classList.add('hidden');
   stopCameraBtn?.classList.add('hidden');
   cameraBtn?.classList.remove('hidden');
