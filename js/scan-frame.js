@@ -17,8 +17,8 @@ export const FULL_LABEL_MASK = {
   x: 0.04,
   y: 0.10,
   w: 0.92,
-  h: 0.72,
-  label: 'Fit the whole sticker in the box',
+  h: 0.58,
+  label: 'Fit the sticker text in the box (above barcode)',
 };
 
 export function getMaskForMode(mode) {

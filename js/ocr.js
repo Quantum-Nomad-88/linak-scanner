@@ -149,7 +149,6 @@ function bestTypeCodeFromBlobs(blobs) {
 
   for (const blob of blobs) {
     if (!blob) continue;
-    rawCandidates.push(blob);
     rawCandidates.push(extractTypeCode(blob, hints));
 
     const compact = blob.replace(/\s/g, '').toUpperCase();
@@ -191,8 +190,9 @@ function cropCanvas(source, x0, y0, x1, y1) {
 }
 
 /** Crop to sticker area — skip LINAK header and barcode footer */
+/** Crop sticker text area — exclude barcode / datamatrix at bottom */
 function cropStickerArea(canvas) {
-  return cropCanvas(canvas, 0.04, 0.10, 0.96, 0.80);
+  return cropCanvas(canvas, 0.04, 0.10, 0.96, 0.66);
 }
 
 function lineCenterY(words) {

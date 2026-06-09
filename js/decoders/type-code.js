@@ -3,7 +3,12 @@
  */
 
 import { isValidFamilyPrefix } from './motor-catalog.js';
-import { repairOcrTypeCode, bestRepairedTypeCode, isValidTypeCode as repairValid } from './type-code-repair.js';
+import {
+  repairOcrTypeCode,
+  bestRepairedTypeCode,
+  isValidTypeCode as repairValid,
+  scoreTypeCodeCandidate,
+} from './type-code-repair.js';
 
 /** Strip to valid type-code characters only */
 export function sanitizeTypeCode(raw) {
@@ -27,15 +32,18 @@ export function normalizeLabelInput(raw) {
 }
 
 /** Short Careline e.g. 27210B+1130504A */
-export const SHORT_PLUS_RE = /^\d{5}[A-Z0-9]?\+\d{6,}[A-Z0-9]*$/;
+export const SHORT_PLUS_RE = /^\d{5}[A-Z0-9]?\+\d{6,12}[A-Z0-9]{0,2}$/;
 
-/** Any LINAK plus-format code — short or extended */
-export const FLEXIBLE_PLUS_RE = /^\d{2}[A-Z0-9]{2,32}\+[A-Z0-9]{4,32}$/;
+/** Extended desk/column e.g. 300402000D0MC26+1011AA149060E */
+export const FLEXIBLE_PLUS_RE = /^\d{2}[A-Z0-9]{4,18}\+[A-Z0-9]{6,16}$/;
 
 export const DASH_TYPE_RE = /^\d{6}-\d{6,10}[A-Z0-9]*$/;
 
-/** Find plus-format codes in messy OCR text */
-export const PLUS_TYPE_RE = /(\d{2}[A-Z0-9]{4,32}\+[A-Z0-9]{4,32}|\d{5}[A-Z0-9]?\+\d{6,}[A-Z0-9]*)/gi;
+/** Find plus-format codes — short format first (avoids greedy garbage matches) */
+export const PLUS_TYPE_RE = /(\d{5}[A-Z0-9]?\+\d{6,12}[A-Z0-9]{0,2}|\d{2}[A-Z0-9]{4,18}\+[A-Z0-9]{6,16})/gi;
+
+export const TYPE_LINE_SHORT_RE = /Type\.?\s*:?\s*(\d{5}[A-Z0-9]?\+\d{6,12}[A-Z0-9]{0,2})/i;
+export const TYPE_LINE_EXT_RE = /Type\.?\s*:?\s*(\d{2}[A-Z0-9]{4,18}\+[A-Z0-9]{6,16})/i;
 
 /** @deprecated use FLEXIBLE_PLUS_RE */
 export const EXTENDED_PLUS_RE = FLEXIBLE_PLUS_RE;
@@ -89,11 +97,17 @@ export function isExtendedPlusCode(code) {
   return FLEXIBLE_PLUS_RE.test(c) && !SHORT_PLUS_RE.test(c);
 }
 
-function pickLongestPlusMatch(hits, hints = {}) {
+function pickBestPlusMatch(hits, hints = {}) {
   if (!hits.length) return null;
-  const sorted = [...hits].sort((a, b) => b[1].length - a[1].length);
-  const candidates = sorted.map((h) => repairOcrTypeCode(h[1], hints)).filter(isValidTypeCode);
-  return candidates[0] || null;
+  const candidates = hits
+    .map((h) => repairOcrTypeCode(h[1], hints))
+    .filter(isValidTypeCode);
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => {
+    const ds = scoreTypeCodeCandidate(b, '', hints) - scoreTypeCodeCandidate(a, '', hints);
+    return ds !== 0 ? ds : a.length - b.length;
+  });
+  return candidates[0];
 }
 
 function finalizeCandidate(raw, hints = {}) {
@@ -161,27 +175,28 @@ export function extractTypeCode(text, hints = {}) {
 
   const compact = sanitizeTypeCode(normalized);
 
-  const direct = finalizeCandidate(compact, hints);
-  if (direct) return direct;
+  // Prefer explicit Type: line (short Careline codes first)
+  const typeShort = normalized.match(TYPE_LINE_SHORT_RE);
+  if (typeShort) {
+    const candidate = finalizeCandidate(typeShort[1], hints);
+    if (candidate) return candidate;
+  }
+  const typeExt = normalized.match(TYPE_LINE_EXT_RE);
+  if (typeExt) {
+    const candidate = finalizeCandidate(typeExt[1], hints);
+    if (candidate) return candidate;
+  }
 
-  const joined = extractJoinedPlus(compact, hints);
-  if (joined) return joined;
+  if (compact.length <= 40) {
+    const direct = finalizeCandidate(compact, hints);
+    if (direct) return direct;
+  }
 
   const split = extractSplitTypeCode(normalized, hints) || extractSplitTypeCode(compact, hints);
   if (split) return split;
 
-  const typeLine = normalized.match(/Type\.?\s*:?\s*([A-Z0-9+]{10,})/i);
-  if (typeLine) {
-    const candidate = finalizeCandidate(typeLine[1], hints);
-    if (candidate) return candidate;
-
-    const rest = normalized.match(/Type\.?\s*:?\s*[A-Z0-9+]+\s+([A-Z0-9]{4,})/i);
-    if (rest) {
-      const prefix = typeLine[1].replace(/[^A-Z0-9]/gi, '');
-      const combined = combinePlusParts(prefix, rest[1], hints) || repairPlusTypeCode(prefix, rest[1], hints);
-      if (combined && isValidTypeCode(combined)) return combined;
-    }
-  }
+  const joined = compact.length <= 40 ? extractJoinedPlus(compact, hints) : null;
+  if (joined) return joined;
 
   const spaceJoin = compact.match(/^(\d{4,8}[A-Z0-9]?)(\d{6,}[A-Z0-9]*)$/);
   if (spaceJoin) {
@@ -190,8 +205,8 @@ export function extractTypeCode(text, hints = {}) {
   }
 
   const plusHits = [...compact.matchAll(PLUS_TYPE_RE)];
-  const fromRegex = pickLongestPlusMatch(plusHits, hints);
-  if (fromRegex && isValidTypeCode(fromRegex)) return fromRegex;
+  const fromRegex = pickBestPlusMatch(plusHits, hints);
+  if (fromRegex) return fromRegex;
 
   const dashHits = [...compact.matchAll(/(\d{6}-\d{6,10}[A-Z0-9]*)/gi)];
   if (dashHits.length) return finalizeCandidate(dashHits[0][1]);
@@ -214,7 +229,7 @@ export function extractTypeCode(text, hints = {}) {
     }
   }
 
-  return extractLoosePlus(compact, hints);
+  return null;
 }
 
 export { repairOcrTypeCode, bestRepairedTypeCode };

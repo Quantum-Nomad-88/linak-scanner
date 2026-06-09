@@ -9,9 +9,11 @@ import {
   typeCodePrefix,
 } from './motor-catalog.js';
 
-const SHORT_PLUS_RE = /^\d{5}[A-Z0-9]?\+\d{6,}[A-Z0-9]*$/;
-const FLEXIBLE_PLUS_RE = /^\d{2}[A-Z0-9]{2,32}\+[A-Z0-9]{4,32}$/;
+const SHORT_PLUS_RE = /^\d{5}[A-Z0-9]?\+\d{6,12}[A-Z0-9]{0,2}$/;
+const EXTENDED_PLUS_RE = /^\d{2}[A-Z0-9]{4,18}\+[A-Z0-9]{6,16}$/;
 const DASH_TYPE_RE = /^\d{6}-\d{6,10}[A-Z0-9]*$/;
+
+const MAX_TOTAL_LEN = 40;
 
 function sanitize(raw) {
   return (raw || '')
@@ -24,6 +26,47 @@ function sanitize(raw) {
     .trim();
 }
 
+function longestLetterRun(s) {
+  const parts = s.match(/[A-Z]+/g);
+  return parts ? Math.max(...parts.map((p) => p.length)) : 0;
+}
+
+function digitRatio(s) {
+  if (!s.length) return 0;
+  return (s.match(/\d/g) || []).length / s.length;
+}
+
+/** Reject OCR garbage merged from barcodes, scratches, or datamatrix noise */
+export function isPlausibleLinakStructure(code) {
+  const c = sanitize(code);
+  if (c.length > MAX_TOTAL_LEN) return false;
+
+  if (DASH_TYPE_RE.test(c)) return c.length <= 22;
+
+  if (!c.includes('+')) return false;
+  const [pfx, sfx] = c.split('+');
+  if (!pfx || !sfx) return false;
+
+  if (SHORT_PLUS_RE.test(c)) {
+    if (pfx.length > 7 || sfx.length > 14) return false;
+    if (longestLetterRun(pfx) > 1) return false;
+    if (!/^\d{6,12}[A-Z]?$/.test(sfx)) return false;
+    return digitRatio(sfx) >= 0.55;
+  }
+
+  if (!EXTENDED_PLUS_RE.test(c)) return false;
+
+  if (pfx.length > 20 || sfx.length > 17) return false;
+  if (longestLetterRun(pfx) > 5) return false;
+  if (longestLetterRun(sfx) > 3) return false;
+  if (digitRatio(pfx) < 0.45) return false;
+  if (digitRatio(sfx) < 0.58) return false;
+  if ((sfx.match(/[A-Z]{2,}/g) || []).length > 2) return false;
+  if ((pfx.match(/[A-Z]{3,}/g) || []).length > 1) return false;
+
+  return true;
+}
+
 function hasValidFamilyPrefix(code) {
   const pfx = typeCodePrefix(code);
   return pfx ? isValidFamilyPrefix(pfx) : false;
@@ -31,10 +74,11 @@ function hasValidFamilyPrefix(code) {
 
 export function isValidTypeCode(code) {
   const c = sanitize(code);
-  if (c.length < 10) return false;
+  if (c.length < 10 || c.length > MAX_TOTAL_LEN) return false;
   if (!c.includes('+') && !c.includes('-')) return false;
-  if (!SHORT_PLUS_RE.test(c) && !FLEXIBLE_PLUS_RE.test(c) && !DASH_TYPE_RE.test(c)) return false;
-  return hasValidFamilyPrefix(c);
+  if (!SHORT_PLUS_RE.test(c) && !EXTENDED_PLUS_RE.test(c) && !DASH_TYPE_RE.test(c)) return false;
+  if (!hasValidFamilyPrefix(c)) return false;
+  return isPlausibleLinakStructure(c);
 }
 
 const TRAILING_SUFFIX_FIX = { F: 'E', G: 'E', P: 'E', O: 'E', 8: 'B', 6: 'G' };
@@ -123,22 +167,25 @@ export function scoreTypeCodeCandidate(code, ocrRaw = '', hints = {}) {
 
   if (hints.expectedFamilies?.includes(family)) score += 20;
 
-  if (SHORT_PLUS_RE.test(code)) score += 15;
-  if (code.length >= 20) score += 10;
-  if (/\+1130\d{3}A?$/i.test(code)) score += 25;
+  if (SHORT_PLUS_RE.test(code)) score += 45;
+  if (code.length <= 20) score += 20;
+  else if (code.length <= 32) score += 8;
+  if (code.length > 35) score -= 60;
+
+  if (/\+1130\d{3}A?$/i.test(code)) score += 30;
   if (/\+1011[A-Z]{1,2}\d{6}/i.test(code)) score += 20;
-  if (/^\d{5}B\+/i.test(code)) score += 10;
+  if (/^\d{5}B\+/i.test(code)) score += 12;
+  if (/^27\d{3}B\+/.test(code)) score += 15;
   if (/D0MC/.test(pfx)) score += 18;
   if (/D0M/.test(pfx)) score += 12;
 
   const letters = (pfx.match(/[A-Z]/g) || []).length;
-  score += letters * 4;
+  score += Math.min(letters * 4, 12);
 
   for (const run of pfx.match(/0{4,}/g) || []) score -= run.length * 2;
+  score -= longestLetterRun(sfx) > 2 ? 20 : 0;
 
-  if (ocrRaw && pfx.length > (ocrRaw.split('+')[0]?.length || 0)) score -= 8;
-
-  if (/[A-Z]{1,3}\d{3}\d{3}/.test(sfx) || /\d{3}0\d{2}/.test(sfx)) score += 8;
+  if (/[A-Z]{1,3}\d{3}/.test(sfx)) score += 10;
   if (/[A-Z]$/.test(sfx)) score += 3;
 
   return score;
@@ -157,7 +204,7 @@ export function repairOcrTypeCode(raw, hints = {}) {
 
   const repaired = tryRepairParts(clean, hints);
   const best = pickBest(repaired, clean, hints);
-  return best || clean;
+  return best || '';
 }
 
 function tryRepairParts(code, hints = {}) {
@@ -181,17 +228,23 @@ function tryRepairParts(code, hints = {}) {
 function pickBest(candidates, ocrRaw, hints = {}) {
   const valid = unique(candidates).filter(isValidTypeCode);
   if (!valid.length) return null;
-  valid.sort((a, b) => scoreTypeCodeCandidate(b, ocrRaw, hints) - scoreTypeCodeCandidate(a, ocrRaw, hints));
+  valid.sort((a, b) => {
+    const ds = scoreTypeCodeCandidate(b, ocrRaw, hints) - scoreTypeCodeCandidate(a, ocrRaw, hints);
+    if (ds !== 0) return ds;
+    return a.length - b.length;
+  });
   return valid[0];
 }
 
 export function bestRepairedTypeCode(candidates, ocrRaw = '', hints = {}) {
   const all = [];
   for (const c of candidates) {
-    all.push(repairOcrTypeCode(c, hints));
-    if (c?.includes('+')) {
+    if (!c || typeof c !== 'string') continue;
+    const repaired = repairOcrTypeCode(c, hints);
+    if (repaired) all.push(repaired);
+    if (c.includes('+')) {
       all.push(...tryRepairParts(sanitize(c), hints));
     }
   }
-  return pickBest(all, ocrRaw, hints) || pickBest(all.map((c) => repairOcrTypeCode(c, hints)), ocrRaw, hints);
+  return pickBest(all, ocrRaw, hints);
 }
