@@ -4,15 +4,15 @@
  */
 
 /**
- * Tight crop — right column Type value only (skips "Type:" label and rows below).
+ * Full-width single-line strip for the Type row (skips rows below).
  * e.g. 27210B+1130504A or 300402000D0MC26+1011AA149060E
  */
 export const TYPE_CODE_MASK = {
-  x: 0.36,
+  x: 0.04,
   y: 0.275,
-  w: 0.60,
+  w: 0.92,
   h: 0.065,
-  label: 'Line up the Type code only (right side)',
+  label: 'Line up the Type code row in the box',
 };
 
 /** Full sticker area for all label fields */
