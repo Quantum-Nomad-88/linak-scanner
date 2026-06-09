@@ -9,6 +9,8 @@ import {
 } from './decoders/type-code.js';
 import { scoreTypeCodeCandidate } from './decoders/type-code-repair.js';
 import { buildDecodeHints } from './decoders/motor-catalog.js';
+import { rotateCanvas, SCAN_ORIENTATIONS } from './image-orient.js';
+import { cropToMask, getMaskForMode } from './scan-frame.js';
 
 let worker = null;
 
@@ -97,16 +99,8 @@ function invertCanvas(source) {
   return out;
 }
 
-/** Rotate 180° — handles upside-down photos */
 function rotateCanvas180(source) {
-  const out = document.createElement('canvas');
-  out.width = source.width;
-  out.height = source.height;
-  const ctx = out.getContext('2d');
-  ctx.translate(out.width, out.height);
-  ctx.rotate(Math.PI);
-  ctx.drawImage(source, 0, 0);
-  return out;
+  return rotateCanvas(source, 180);
 }
 
 function averageLuminance(canvas) {
@@ -333,11 +327,7 @@ export async function recognizeTypeCodeOnly(image) {
   }
 
   const upscaled = upscaleCanvas(image, 2800);
-  const variants = [
-    enhanceCanvas(upscaled),
-    binarizeCanvas(upscaled, 130),
-    binarizeCanvas(enhanceCanvas(upscaled), 150),
-  ];
+  const variants = buildTypeCodeVariants(upscaled);
 
   const w = await getWorker();
   const blobs = [];
@@ -362,6 +352,60 @@ function makeTypeCodeResult(code, rawBlob) {
   };
 }
 
+/** Score OCR output — higher is better */
+export function scoreOcrResult(result, hints = {}) {
+  if (!result) return 0;
+  let score = (result.foundCount || 0) * 12;
+
+  if (result.typeCode && isValidTypeCode(result.typeCode)) {
+    score += 80 + scoreTypeCodeCandidate(result.typeCode, result.rawBlob || '', hints);
+  }
+
+  const text = `${result.cleanText || ''}\n${result.rawBlob || ''}`;
+  if (/Type\s*:/i.test(text)) score += 15;
+  if (/Item\s*No/i.test(text)) score += 10;
+  if (/KA\d{2}/i.test(text)) score += 8;
+  if (/Push\s*\d+/i.test(text)) score += 5;
+
+  return score;
+}
+
+/**
+ * OCR a camera/gallery capture — tries normal and upside-down before cropping.
+ */
+export async function recognizeCapture(sourceCanvas, mode = 'type') {
+  const mask = getMaskForMode(mode);
+  let best = null;
+  let bestScore = -1;
+
+  for (const deg of SCAN_ORIENTATIONS) {
+    const oriented = rotateCanvas(sourceCanvas, deg);
+    const cropped = cropToMask(oriented, mask);
+
+    const result = mode === 'type'
+      ? await recognizeTypeCodeOnly(cropped)
+      : await recognizeText(cropped);
+
+    const hints = buildDecodeHints(result.rawBlob || result.cleanText || '');
+    const score = scoreOcrResult(result, hints);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { result, preview: cropped, orientation: deg };
+    }
+  }
+
+  if (!best) {
+    const cropped = cropToMask(sourceCanvas, mask);
+    const result = mode === 'type'
+      ? await recognizeTypeCodeOnly(cropped)
+      : await recognizeText(cropped);
+    return { result, preview: cropped, orientation: 0 };
+  }
+
+  return best;
+}
+
 /**
  * @returns {Promise<{ cleanText: string, rawBlob: string, typeCode: string|null, foundCount: number }>}
  */
@@ -378,48 +422,51 @@ export async function recognizeText(image) {
   }
 
   const upscaled = upscaleCanvas(image);
-  const enhanced = enhanceCanvas(upscaled);
-  const sticker = cropStickerArea(enhanced);
-
   const blobs = [];
 
-  // Strategy A: column pairing on sticker crop (best for two-column labels)
-  const colData = await ocrCanvas(sticker, Tesseract.PSM.AUTO);
-  const paired = pairColumns(colData, sticker.width);
-  if (paired.length) blobs.push(paired.join('\n'));
-  blobs.push(colData.text || '');
+  for (const source of buildLabelSources(upscaled)) {
+    const sticker = cropStickerArea(source);
 
-  // Strategy B: separate left / right column OCR
-  const leftCrop = cropCanvas(sticker, 0.0, 0.0, 0.42, 1.0);
-  const rightCrop = cropCanvas(sticker, 0.38, 0.0, 1.0, 1.0);
-  const [leftData, rightData] = await Promise.all([
-    ocrCanvas(leftCrop, Tesseract.PSM.SINGLE_BLOCK),
-    ocrCanvas(rightCrop, Tesseract.PSM.SINGLE_BLOCK),
-  ]);
+    const colData = await ocrCanvas(sticker, Tesseract.PSM.AUTO);
+    const paired = pairColumns(colData, sticker.width);
+    if (paired.length) blobs.push(paired.join('\n'));
+    blobs.push(colData.text || '');
 
-  const leftLines = (leftData.text || '').split('\n').map((l) => l.trim()).filter(Boolean);
-  const rightLines = (rightData.text || '').split('\n').map((l) => l.trim()).filter(Boolean);
-  if (leftLines.length && rightLines.length) {
-    const manual = [];
-    const n = Math.max(leftLines.length, rightLines.length);
-    for (let i = 0; i < n; i++) {
-      const label = (leftLines[i] || '').replace(/:+$/, '');
-      const val = rightLines[i] || '';
-      if (label && val) manual.push(`${label}: ${val}`);
-      else if (val) manual.push(val);
+    const leftCrop = cropCanvas(sticker, 0.0, 0.0, 0.42, 1.0);
+    const rightCrop = cropCanvas(sticker, 0.38, 0.0, 1.0, 1.0);
+    const [leftData, rightData] = await Promise.all([
+      ocrCanvas(leftCrop, Tesseract.PSM.SINGLE_BLOCK),
+      ocrCanvas(rightCrop, Tesseract.PSM.SINGLE_BLOCK),
+    ]);
+
+    const leftLines = (leftData.text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+    const rightLines = (rightData.text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+    if (leftLines.length && rightLines.length) {
+      const manual = [];
+      const n = Math.max(leftLines.length, rightLines.length);
+      for (let i = 0; i < n; i++) {
+        const label = (leftLines[i] || '').replace(/:+$/, '');
+        const val = rightLines[i] || '';
+        if (label && val) manual.push(`${label}: ${val}`);
+        else if (val) manual.push(val);
+      }
+      if (manual.length) blobs.push(manual.join('\n'));
     }
-    if (manual.length) blobs.push(manual.join('\n'));
+    blobs.push(leftData.text || '', rightData.text || '');
   }
-  blobs.push(leftData.text || '', rightData.text || '');
 
   const rawBlob = blobs.join('\n');
+  const hints = buildDecodeHints(rawBlob);
   const extracted = extractLabelFromOcr(rawBlob);
+  const typeCode = extracted.fields.typeCode
+    || bestTypeCodeFromBlobs(blobs)
+    || extractTypeCode(rawBlob, hints);
 
   return {
-    cleanText: extracted.cleanText,
+    cleanText: extracted.cleanText || (typeCode ? `Type: ${typeCode}` : ''),
     rawBlob,
-    typeCode: extracted.fields.typeCode,
-    foundCount: extracted.foundCount,
+    typeCode,
+    foundCount: extracted.foundCount || (typeCode ? 1 : 0),
   };
 }
 

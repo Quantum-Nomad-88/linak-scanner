@@ -7,8 +7,8 @@ import {
   sanitizeTypeCode,
 } from './decoders/type-code.js';
 import { buildDecodeHints } from './decoders/motor-catalog.js';
-import { recognizeText, recognizeTypeCodeOnly } from './ocr.js';
-import { cropToMask, drawMaskOverlay, getMaskForMode } from './scan-frame.js';
+import { recognizeCapture } from './ocr.js';
+import { drawMaskOverlay, getMaskForMode } from './scan-frame.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -185,22 +185,13 @@ function stopCamera() {
   cameraBtn?.classList.remove('hidden');
 }
 
-function prepareScanCanvas(sourceCanvas) {
-  const mode = getScanMode();
-  const mask = getMaskForMode(mode);
-  const cropped = cropToMask(sourceCanvas, mask);
-  currentImageDataUrl = cropped.toDataURL('image/jpeg', 0.95);
-  return { cropped, mode };
-}
-
 async function captureFromCamera() {
   if (!stream) return;
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
   stopCamera();
-  const { cropped, mode } = prepareScanCanvas(canvas);
-  await runOcr(cropped, mode);
+  await runOcrOnCapture(canvas);
 }
 
 async function processImageFile(file) {
@@ -211,10 +202,45 @@ async function processImageFile(file) {
     canvas.height = img.naturalHeight;
     canvas.getContext('2d').drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
-    const { cropped, mode } = prepareScanCanvas(canvas);
-    await runOcr(cropped, mode);
+    await runOcrOnCapture(canvas);
   };
   img.src = url;
+}
+
+async function runOcrOnCapture(sourceCanvas) {
+  const mode = getScanMode();
+  setLoading(true, mode === 'type' ? 'Reading type code…' : 'Reading label…');
+  progressWrap.classList.remove('hidden');
+  progressBar.style.width = '0%';
+
+  try {
+    const { result, preview } = await recognizeCapture(sourceCanvas, mode);
+    currentImageDataUrl = preview.toDataURL('image/jpeg', 0.95);
+
+    rawTextArea.value = result.cleanText || '';
+
+    if (result.typeCode) {
+      $('#type-code-input').value = result.typeCode;
+    }
+
+    decodeAndShow(result.cleanText || result.rawBlob || result.typeCode || '');
+
+    if (result.foundCount === 0 && !result.typeCode) {
+      showToast(mode === 'type'
+        ? 'Could not read type code — try Full label mode or paste manually.'
+        : 'Could not read label — paste type code manually.');
+    } else if (mode === 'full' && result.foundCount < 3 && !result.typeCode) {
+      showToast(`Partial read (${result.foundCount} fields) — check and edit below.`);
+    } else if (result.typeCode) {
+      showToast('Label read — specs decoded.');
+    }
+  } catch (err) {
+    showToast('OCR failed. Paste type code manually.');
+    console.error(err);
+  } finally {
+    setLoading(false);
+    progressWrap.classList.add('hidden');
+  }
 }
 
 // --- OCR ---
@@ -242,42 +268,6 @@ function initOcrUi() {
   on(rawTextArea, 'paste', () => {
     setTimeout(() => decodeAndShow(rawTextArea?.value || ''), 50);
   });
-}
-
-async function runOcr(imageSource, mode = getScanMode()) {
-  setLoading(true, mode === 'type' ? 'Reading type code…' : 'Reading label…');
-  progressWrap.classList.remove('hidden');
-  progressBar.style.width = '0%';
-
-  try {
-    const result = mode === 'type'
-      ? await recognizeTypeCodeOnly(imageSource)
-      : await recognizeText(imageSource);
-
-    rawTextArea.value = result.cleanText || '';
-
-    if (result.typeCode) {
-      $('#type-code-input').value = result.typeCode;
-    }
-
-    decodeAndShow(result.cleanText || result.rawBlob || result.typeCode || '');
-
-    if (result.foundCount === 0) {
-      showToast(mode === 'type'
-        ? 'Could not read type code — adjust framing or paste manually.'
-        : 'Could not read label — paste type code manually.');
-    } else if (mode === 'full' && result.foundCount < 3) {
-      showToast(`Partial read (${result.foundCount} fields) — check and edit below.`);
-    } else if (mode === 'type' && result.typeCode) {
-      showToast('Type code read — specs decoded.');
-    }
-  } catch (err) {
-    showToast('OCR failed. Paste type code manually.');
-    console.error(err);
-  } finally {
-    setLoading(false);
-    progressWrap.classList.add('hidden');
-  }
 }
 
 function decodeAndShow(text) {

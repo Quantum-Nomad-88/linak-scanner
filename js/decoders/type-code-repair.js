@@ -126,6 +126,7 @@ export function scoreTypeCodeCandidate(code, ocrRaw = '', hints = {}) {
   if (SHORT_PLUS_RE.test(code)) score += 15;
   if (code.length >= 20) score += 10;
   if (/\+1130\d{3}A?$/i.test(code)) score += 25;
+  if (/\+1011[A-Z]{1,2}\d{6}/i.test(code)) score += 20;
   if (/^\d{5}B\+/i.test(code)) score += 10;
   if (/D0MC/.test(pfx)) score += 18;
   if (/D0M/.test(pfx)) score += 12;

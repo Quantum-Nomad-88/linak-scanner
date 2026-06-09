@@ -198,7 +198,8 @@ export function extractTypeCode(text, hints = {}) {
 
   const suffixPatterns = [
     /(1130\d{3}A?)/,
-    /(1011[A-Z]{0,2}\d{6,}[A-Z]?)/,
+    /(1011[A-Z]{1,2}\d{6,}[A-Z]?)/,
+    /(1011GA\d{6}[A-Z]?)/i,
     /(\d{6,}[A-Z]\d{3,}[A-Z]?)/,
   ];
 
