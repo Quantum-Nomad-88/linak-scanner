@@ -44,12 +44,12 @@ function getScanMode() {
 }
 
 function applyScanFrameUi() {
+  if (!cameraWrap || !scanFrameHint) return;
   const mask = getMaskForMode(getScanMode());
-  const root = cameraWrap;
-  root.style.setProperty('--frame-x', `${mask.x * 100}%`);
-  root.style.setProperty('--frame-y', `${mask.y * 100}%`);
-  root.style.setProperty('--frame-w', `${mask.w * 100}%`);
-  root.style.setProperty('--frame-h', `${mask.h * 100}%`);
+  cameraWrap.style.setProperty('--frame-x', `${mask.x * 100}%`);
+  cameraWrap.style.setProperty('--frame-y', `${mask.y * 100}%`);
+  cameraWrap.style.setProperty('--frame-w', `${mask.w * 100}%`);
+  cameraWrap.style.setProperty('--frame-h', `${mask.h * 100}%`);
   scanFrameHint.textContent = mask.label;
 }
 
@@ -61,7 +61,6 @@ cameraBtn.addEventListener('click', startCamera);
 galleryBtn.addEventListener('click', () => fileInput.click());
 captureBtn.addEventListener('click', captureFromCamera);
 stopCameraBtn.addEventListener('click', stopCamera);
-applyScanFrameUi();
 
 fileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -72,18 +71,51 @@ fileInput.addEventListener('change', async (e) => {
 
 async function startCamera() {
   try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showToast('Camera not supported here. Use Gallery instead.');
+      return;
+    }
+
     stopCamera();
+
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false,
     });
+
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.muted = true;
     video.srcObject = stream;
-    applyScanFrameUi();
+
+    // Show camera area before play() so layout has size (required on iOS)
     cameraWrap.classList.remove('hidden');
+    applyScanFrameUi();
     captureBtn.classList.remove('hidden');
     stopCameraBtn.classList.remove('hidden');
     cameraBtn.classList.add('hidden');
+
+    await new Promise((resolve, reject) => {
+      if (video.videoWidth > 0) {
+        resolve();
+        return;
+      }
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error('Video failed to load'));
+      setTimeout(() => resolve(), 3000);
+    });
+
+    await video.play();
   } catch (err) {
-    showToast('Camera access denied. Use gallery upload instead.');
+    console.error('Camera error:', err);
+    showToast(err?.name === 'NotAllowedError'
+      ? 'Camera permission denied — allow camera in browser settings.'
+      : 'Camera failed — try Gallery instead.');
+    stopCamera();
   }
 }
 

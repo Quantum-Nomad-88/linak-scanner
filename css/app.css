@@ -161,6 +161,7 @@ body {
 .camera-wrap {
   position: relative;
   width: 100%;
+  min-height: min(52vh, 420px);
   margin-bottom: 0.75rem;
   border-radius: 8px;
   overflow: hidden;
@@ -168,56 +169,66 @@ body {
 }
 
 .camera-wrap.hidden {
-  display: none;
+  display: none !important;
 }
 
 .camera {
   display: block;
   width: 100%;
-  max-height: 55vh;
+  height: min(52vh, 420px);
   object-fit: cover;
+  background: #000;
 }
 
 .camera-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
 }
 
 .overlay-shade {
-  background: rgba(0, 0, 0, 0.6);
-  flex-shrink: 0;
-}
-
-.overlay-middle {
-  display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
-  height: var(--frame-h, 14%);
-}
-
-.overlay-middle .overlay-shade {
-  width: var(--frame-x, 4%);
-  height: 100%;
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
 }
 
 #overlay-top {
+  left: 0;
+  right: 0;
+  top: 0;
   height: var(--frame-y, 30%);
 }
 
 #overlay-bottom {
-  flex: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: calc(var(--frame-y, 30%) + var(--frame-h, 14%));
+}
+
+#overlay-left {
+  left: 0;
+  top: var(--frame-y, 30%);
+  width: var(--frame-x, 4%);
+  height: var(--frame-h, 14%);
+}
+
+#overlay-right {
+  right: 0;
+  top: var(--frame-y, 30%);
+  left: calc(var(--frame-x, 4%) + var(--frame-w, 92%));
+  height: var(--frame-h, 14%);
 }
 
 .scan-frame {
+  position: absolute;
+  left: var(--frame-x, 4%);
+  top: var(--frame-y, 30%);
   width: var(--frame-w, 92%);
-  height: 100%;
+  height: var(--frame-h, 14%);
   border: 2px solid var(--accent2);
   border-radius: 6px;
   box-shadow: 0 0 12px rgba(0, 136, 238, 0.5);
-  flex-shrink: 0;
+  z-index: 2;
 }
 
 .scan-frame-hint {

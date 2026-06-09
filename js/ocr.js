@@ -1,5 +1,5 @@
 import { extractLabelFromOcr } from './label-extract.js';
-import { extractTypeCode, repairPlusTypeCode, sanitizeTypeCode } from './decoders/type-code.js';
+import { extractTypeCode, repairPlusTypeCode } from './decoders/type-code.js';
 
 let worker = null;
 
@@ -193,7 +193,7 @@ export async function recognizeTypeCodeOnly(image) {
 
   const w = await getWorker();
 
-  for (const psm of [Tesseract.PSM.SINGLE_LINE, Tesseract.PSM.SINGLE_BLOCK, Tesseract.PSM.RAW_LINE]) {
+  for (const psm of [Tesseract.PSM.SINGLE_LINE, Tesseract.PSM.SINGLE_BLOCK]) {
     await w.setParameters({
       tessedit_pageseg_mode: psm,
       tessedit_char_whitelist: TYPE_CODE_WHITELIST,
