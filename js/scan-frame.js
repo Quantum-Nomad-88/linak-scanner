@@ -3,10 +3,7 @@
  * Tuned for LINAK labels — type code is the first spec row on the right.
  */
 
-/**
- * Full-width single-line strip for the Type row (skips rows below).
- * e.g. 27210B+1130504A or 300402000D0MC26+1011AA149060E
- */
+/** Full-width single-row strip for the Type code line */
 export const TYPE_CODE_MASK = {
   x: 0.04,
   y: 0.275,

@@ -79,6 +79,75 @@ function binarizeCanvas(source, threshold = 135) {
   return out;
 }
 
+/** Invert colours — helps when photo lighting or negative image */
+function invertCanvas(source) {
+  const out = document.createElement('canvas');
+  out.width = source.width;
+  out.height = source.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(source, 0, 0);
+  const img = ctx.getImageData(0, 0, out.width, out.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = 255 - d[i];
+    d[i + 1] = 255 - d[i + 1];
+    d[i + 2] = 255 - d[i + 2];
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+/** Rotate 180° — handles upside-down photos */
+function rotateCanvas180(source) {
+  const out = document.createElement('canvas');
+  out.width = source.width;
+  out.height = source.height;
+  const ctx = out.getContext('2d');
+  ctx.translate(out.width, out.height);
+  ctx.rotate(Math.PI);
+  ctx.drawImage(source, 0, 0);
+  return out;
+}
+
+function averageLuminance(canvas) {
+  const ctx = canvas.getContext('2d');
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < d.length; i += 16) {
+    sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    n++;
+  }
+  return n ? sum / n : 128;
+}
+
+/** Normal, inverted, and rotated variants for robust OCR */
+function buildTypeCodeVariants(upscaled) {
+  const enhanced = enhanceCanvas(upscaled);
+  const variants = [
+    enhanced,
+    binarizeCanvas(enhanced, 130),
+    invertCanvas(enhanced),
+    rotateCanvas180(enhanced),
+    invertCanvas(rotateCanvas180(enhanced)),
+  ];
+  if (averageLuminance(upscaled) < 95) {
+    variants.unshift(invertCanvas(binarizeCanvas(invertCanvas(upscaled), 140)));
+  }
+  return variants;
+}
+
+/** Sources for full-label OCR including flipped orientations */
+function buildLabelSources(upscaled) {
+  const enhanced = enhanceCanvas(upscaled);
+  const sources = [enhanced, invertCanvas(enhanced), rotateCanvas180(enhanced)];
+  if (averageLuminance(upscaled) < 95) {
+    sources.unshift(invertCanvas(upscaled));
+  }
+  return sources;
+}
+
 function bestTypeCodeFromBlobs(blobs) {
   const rawCandidates = [];
   const ocrRaw = blobs.join('');
