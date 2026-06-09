@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0066b3" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>LINAK Motor Specs</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <h1>LINAK Motor Specs</h1>
+      <p class="subtitle">Scan actuator labels · decode motor specs</p>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- SCAN -->
+    <section id="view-scan" class="view">
+      <div class="card">
+        <h2>Scan label</h2>
+        <p class="hint">Photograph the LINAK sticker or upload an image. Works offline after first load.</p>
+
+        <div class="btn-row">
+          <button type="button" id="camera-btn" class="btn primary">📷 Camera</button>
+          <button type="button" id="gallery-btn" class="btn">🖼 Gallery</button>
+          <input type="file" id="file-input" accept="image/*" capture="environment" hidden />
+        </div>
+
+        <video id="camera-video" class="camera hidden" playsinline autoplay muted></video>
+        <canvas id="capture-canvas" class="hidden"></canvas>
+
+        <div class="btn-row">
+          <button type="button" id="capture-btn" class="btn primary hidden">Capture</button>
+          <button type="button" id="stop-camera-btn" class="btn hidden">Cancel</button>
+        </div>
+
+        <div id="ocr-progress-wrap" class="progress-wrap hidden">
+          <div class="progress-bar"><div id="ocr-progress"></div></div>
+        </div>
+
+        <img id="preview-img" class="preview hidden" alt="Scanned label" />
+
+        <label class="field-label" for="raw-text">OCR text (edit if needed)</label>
+        <textarea id="raw-text" rows="6" placeholder="Paste label text here, or scan an image above…"></textarea>
+
+        <label class="field-label" for="type-code-input">Type code override (optional)</label>
+        <input type="text" id="type-code-input" placeholder="e.g. 311100-00100240" autocomplete="off" />
+
+        <button type="button" id="decode-btn" class="btn primary full">Decode specs</button>
+      </div>
+
+      <div id="results-section" class="card hidden">
+        <div class="results-header">
+          <h2>Motor specs</h2>
+          <span id="confidence" class="confidence">—</span>
+        </div>
+        <div id="results-grid" class="results-grid"></div>
+
+        <div id="warnings-box" class="warnings hidden">
+          <h3>Notes</h3>
+          <ul id="warnings"></ul>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" id="save-btn" class="btn">💾 Save</button>
+          <button type="button" id="share-btn" class="btn">↗ Share</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view hidden">
+      <div class="card">
+        <div class="results-header">
+          <h2>History</h2>
+          <button type="button" id="clear-history-btn" class="btn small">Clear</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- MODELS -->
+    <section id="view-models" class="view hidden">
+      <div class="card">
+        <h2>Supported actuators</h2>
+        <p class="hint">Common LINAK families with type-code decoders:</p>
+        <ul id="models-list" class="models-list"></ul>
+        <p class="hint small">Specs are read from the label text and decoded from the Type ordering code. Custom configurations may need manual verification.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button type="button" class="nav-btn active" data-view="scan">Scan</button>
+    <button type="button" class="nav-btn" data-view="history">History</button>
+    <button type="button" class="nav-btn" data-view="models">Models</button>
+  </nav>
+
+  <div id="loading" class="loading hidden">
+    <div class="spinner"></div>
+    <p id="loading-text">Loading…</p>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
