@@ -1,5 +1,11 @@
 import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
-import { extractTypeCode, isValidTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
+import {
+  extractTypeCode,
+  isValidTypeCode,
+  normalizeLabelInput,
+  repairOcrTypeCode,
+  sanitizeTypeCode,
+} from './decoders/type-code.js';
 import { recognizeText, recognizeTypeCodeOnly } from './ocr.js';
 import { cropToMask, drawMaskOverlay, getMaskForMode } from './scan-frame.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
@@ -274,7 +280,7 @@ async function runOcr(imageSource, mode = getScanMode()) {
 }
 
 function decodeAndShow(text) {
-  const typeOverride = sanitizeTypeCode($('#type-code-input').value);
+  const typeOverride = repairOcrTypeCode($('#type-code-input').value);
   const bodyText = normalizeLabelInput(text);
 
   // Direct type-code decode is most reliable (paste field or bare code)

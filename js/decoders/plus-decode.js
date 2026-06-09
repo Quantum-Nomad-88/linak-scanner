@@ -5,7 +5,7 @@
  */
 
 import { SPINDLE_PITCH, IP_RATINGS, FEEDBACK_TYPES } from './constants.js';
-import { sanitizeTypeCode, SHORT_PLUS_RE, EXTENDED_PLUS_RE } from './type-code.js';
+import { sanitizeTypeCode, SHORT_PLUS_RE, FLEXIBLE_PLUS_RE } from './type-code.js';
 
 const BACK_FIXTURES = {
   A: 'Standard with 12 mm slot',
@@ -34,7 +34,7 @@ export function parsePlusTypeCode(typeCode) {
   if (SHORT_PLUS_RE.test(clean)) {
     return { before, after, full: clean, format: 'short' };
   }
-  if (EXTENDED_PLUS_RE.test(clean)) {
+  if (FLEXIBLE_PLUS_RE.test(clean)) {
     return { before, after, full: clean, format: 'extended' };
   }
 

@@ -1,5 +1,13 @@
 import { extractLabelFromOcr } from './label-extract.js';
-import { extractTypeCode, repairPlusTypeCode, sanitizeTypeCode, isValidTypeCode } from './decoders/type-code.js';
+import {
+  extractTypeCode,
+  repairPlusTypeCode,
+  repairOcrTypeCode,
+  bestRepairedTypeCode,
+  sanitizeTypeCode,
+  isValidTypeCode,
+} from './decoders/type-code.js';
+import { scoreTypeCodeCandidate } from './decoders/type-code-repair.js';
 
 let worker = null;
 
@@ -70,51 +78,39 @@ function binarizeCanvas(source, threshold = 135) {
   return out;
 }
 
-function scoreTypeCode(code) {
-  if (!isValidTypeCode(code)) return 0;
-  let score = 40;
-  if (/^\d{2}[A-Z0-9]{8,}\+[A-Z0-9]{10,}$/.test(code)) score += 30;
-  if (/\+1130\d{3}A?$/i.test(code)) score += 35;
-  if (/^\d{5}B\+/i.test(code)) score += 15;
-  if (code.length >= 28) score += 25;
-  if (code.length >= 16) score += 10;
-  if (code.startsWith('30')) score += 10;
-  if (code.startsWith('27')) score += 10;
-  return score;
-}
-
 function bestTypeCodeFromBlobs(blobs) {
-  const seen = new Set();
-  const candidates = [];
-
-  const add = (code) => {
-    const clean = sanitizeTypeCode(code || '');
-    if (!clean || seen.has(clean)) return;
-    seen.add(clean);
-    candidates.push(clean);
-  };
+  const rawCandidates = [];
 
   for (const blob of blobs) {
     if (!blob) continue;
-    add(extractTypeCode(blob));
+    rawCandidates.push(blob);
+    rawCandidates.push(extractTypeCode(blob));
 
     const compact = blob.replace(/\s/g, '').toUpperCase();
-    const extSplit = compact.match(/(\d{2}[A-Z0-9]{8,22})[:+]+([A-Z0-9]{8,24})/);
-    if (extSplit) add(`${extSplit[1]}+${extSplit[2]}`);
+    const extSplit = compact.match(/(\d{2}[A-Z0-9]{4,32})[:+]+([A-Z0-9]{4,32})/);
+    if (extSplit) rawCandidates.push(`${extSplit[1]}+${extSplit[2]}`);
 
-    const split = compact.match(/(\d{4,7})[:+B8]?(\d{6,}[A-Z0-9]*)/);
-    if (split) add(repairPlusTypeCode(split[1], split[2]));
+    const split = compact.match(/(\d{4,8})[:+B8]?(\d{6,}[A-Z0-9]*)/);
+    if (split) rawCandidates.push(repairPlusTypeCode(split[1], split[2]));
 
     const digitsOnly = compact.replace(/[^0-9+A-Z]/g, '');
     const joined = digitsOnly.match(/^(\d{5,6}[A-Z]?)(\d{6,}[A-Z0-9]*)$/);
-    if (joined) add(repairPlusTypeCode(joined[1], joined[2]));
+    if (joined) rawCandidates.push(repairPlusTypeCode(joined[1], joined[2]));
 
-    const extJoined = digitsOnly.match(/^(\d{2}[A-Z0-9]{8,22})(\d{2}[A-Z0-9]{8,22})$/);
-    if (extJoined) add(`${extJoined[1]}+${extJoined[2]}`);
+    const extJoined = digitsOnly.match(/^(\d{2}[A-Z0-9]{6,32})(\d{2}[A-Z0-9]{6,32})$/);
+    if (extJoined) rawCandidates.push(`${extJoined[1]}+${extJoined[2]}`);
+
+    const loose = compact.match(/(\d{2}[A-Z0-9]{6,32}\+[A-Z0-9]{6,32})/);
+    if (loose) rawCandidates.push(loose[1]);
   }
 
-  candidates.sort((a, b) => scoreTypeCode(b) - scoreTypeCode(a));
-  return candidates[0] || null;
+  const ocrRaw = blobs.join('');
+  const best = bestRepairedTypeCode(rawCandidates.filter(Boolean), ocrRaw);
+  if (best && isValidTypeCode(best)) return best;
+
+  const repaired = rawCandidates.map(repairOcrTypeCode).filter(isValidTypeCode);
+  repaired.sort((a, b) => scoreTypeCodeCandidate(b, ocrRaw) - scoreTypeCodeCandidate(a, ocrRaw));
+  return repaired[0] || null;
 }
 
 function cropCanvas(source, x0, y0, x1, y1) {
