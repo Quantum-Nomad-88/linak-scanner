@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.svg" />
-  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/app.css?v=10" />
 </head>
 <body>
   <header class="header">
@@ -131,7 +131,50 @@
 
   <div id="toast" class="toast"></div>
 
+  <div id="boot-error" class="boot-error hidden" role="alert">
+    <strong>App failed to load.</strong>
+    <p id="boot-error-msg">Try clearing site data for this page, then reload.</p>
+    <button type="button" id="boot-reload-btn" class="btn primary">Reload</button>
+  </div>
+
+  <script>
+    (function () {
+      var SW_KEY = 'linak-sw-reset-v10';
+      function showBootError(msg) {
+        var box = document.getElementById('boot-error');
+        var msgEl = document.getElementById('boot-error-msg');
+        if (!box) return;
+        if (msgEl && msg) msgEl.textContent = msg;
+        box.classList.remove('hidden');
+      }
+      window.__linakShowBootError = showBootError;
+      document.getElementById('boot-reload-btn')?.addEventListener('click', function () {
+        location.reload();
+      });
+      if ('serviceWorker' in navigator && !sessionStorage.getItem(SW_KEY)) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          if (!regs.length) {
+            sessionStorage.setItem(SW_KEY, '1');
+            return;
+          }
+          Promise.all(regs.map(function (r) { return r.unregister(); }))
+            .then(function () {
+              sessionStorage.setItem(SW_KEY, '1');
+              location.reload();
+            })
+            .catch(function () { sessionStorage.setItem(SW_KEY, '1'); });
+        });
+      }
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="js/app.js?v=9"></script>
+  <script type="module">
+    import('./js/app.js?v=10').catch(function (err) {
+      console.error('LINAK app boot failed:', err);
+      window.__linakShowBootError?.(
+        'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
+      );
+    });
+  </script>
 </body>
 </html>

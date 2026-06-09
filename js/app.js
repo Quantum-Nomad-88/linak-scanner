@@ -7,17 +7,23 @@ import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHis
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
+function on(el, event, handler) {
+  if (el) el.addEventListener(event, handler);
+}
+
 let currentSpecs = null;
 let currentImageDataUrl = null;
 
 // --- Navigation ---
-$$('.nav-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const view = btn.dataset.view;
-    showView(view);
-    $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+function initNavigation() {
+  $$('.nav-btn').forEach((btn) => {
+    on(btn, 'click', () => {
+      const view = btn.dataset.view;
+      showView(view);
+      $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    });
   });
-});
+}
 
 function showView(name) {
   $$('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
@@ -53,24 +59,30 @@ function applyScanFrameUi() {
   scanFrameHint.textContent = mask.label;
 }
 
-$$('input[name="scan-mode"]').forEach((el) => {
-  el.addEventListener('change', applyScanFrameUi);
-});
+function initCameraUi() {
+  $$('input[name="scan-mode"]').forEach((el) => {
+    on(el, 'change', applyScanFrameUi);
+  });
 
-cameraBtn.addEventListener('click', startCamera);
-galleryBtn.addEventListener('click', () => fileInput.click());
-captureBtn.addEventListener('click', captureFromCamera);
-stopCameraBtn.addEventListener('click', stopCamera);
+  on(cameraBtn, 'click', startCamera);
+  on(galleryBtn, 'click', () => fileInput?.click());
+  on(captureBtn, 'click', captureFromCamera);
+  on(stopCameraBtn, 'click', stopCamera);
 
-fileInput.addEventListener('change', async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  await processImageFile(file);
-  fileInput.value = '';
-});
+  on(fileInput, 'change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processImageFile(file);
+    fileInput.value = '';
+  });
+}
 
 async function startCamera() {
   try {
+    if (!video || !cameraWrap) {
+      showToast('Camera UI not ready — reload the page.');
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       showToast('Camera not supported here. Use Gallery instead.');
       return;
@@ -124,11 +136,11 @@ function stopCamera() {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
-  video.srcObject = null;
-  cameraWrap.classList.add('hidden');
-  captureBtn.classList.add('hidden');
-  stopCameraBtn.classList.add('hidden');
-  cameraBtn.classList.remove('hidden');
+  if (video) video.srcObject = null;
+  cameraWrap?.classList.add('hidden');
+  captureBtn?.classList.add('hidden');
+  stopCameraBtn?.classList.add('hidden');
+  cameraBtn?.classList.remove('hidden');
 }
 
 function prepareScanCanvas(sourceCanvas) {
@@ -168,9 +180,27 @@ const progressBar = $('#ocr-progress');
 const progressWrap = $('#ocr-progress-wrap');
 const rawTextArea = $('#raw-text');
 
-document.addEventListener('ocr-progress', (e) => {
-  progressBar.style.width = `${e.detail}%`;
-});
+function initOcrUi() {
+  document.addEventListener('ocr-progress', (e) => {
+    if (progressBar) progressBar.style.width = `${e.detail}%`;
+  });
+
+  on($('#decode-btn'), 'click', () => {
+    decodeAndShow(rawTextArea?.value || '');
+  });
+
+  on($('#type-code-input'), 'keydown', (e) => {
+    if (e.key === 'Enter') decodeAndShow(rawTextArea?.value || '');
+  });
+
+  on($('#type-code-input'), 'paste', () => {
+    setTimeout(() => decodeAndShow(rawTextArea?.value || ''), 50);
+  });
+
+  on(rawTextArea, 'paste', () => {
+    setTimeout(() => decodeAndShow(rawTextArea?.value || ''), 50);
+  });
+}
 
 async function runOcr(imageSource, mode = getScanMode()) {
   setLoading(true, mode === 'type' ? 'Reading type code…' : 'Reading label…');
@@ -208,22 +238,6 @@ async function runOcr(imageSource, mode = getScanMode()) {
   }
 }
 
-$('#decode-btn').addEventListener('click', () => {
-  decodeAndShow(rawTextArea.value);
-});
-
-$('#type-code-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') decodeAndShow(rawTextArea.value);
-});
-
-$('#type-code-input').addEventListener('paste', () => {
-  setTimeout(() => decodeAndShow(rawTextArea.value), 50);
-});
-
-rawTextArea.addEventListener('paste', () => {
-  setTimeout(() => decodeAndShow(rawTextArea.value), 50);
-});
-
 function decodeAndShow(text) {
   const typeOverride = sanitizeTypeCode($('#type-code-input').value);
   const bodyText = normalizeLabelInput(text);
@@ -241,6 +255,14 @@ function decodeAndShow(text) {
       : fromLabel;
   } else {
     currentSpecs = decodeMotorSpecs(bodyText);
+  }
+
+  if (currentImageDataUrl) {
+    const preview = $('#preview-img');
+    if (preview) {
+      preview.src = currentImageDataUrl;
+      preview.classList.remove('hidden');
+    }
   }
 
   renderResults(currentSpecs);
@@ -263,11 +285,6 @@ function pickLabelFields(specs) {
     voltage: specs.voltage || undefined,
     ipRating: specs.ipRating || undefined,
   };
-
-  if (currentImageDataUrl) {
-    $('#preview-img').src = currentImageDataUrl;
-    $('#preview-img').classList.remove('hidden');
-  }
 }
 
 // --- Results ---
@@ -333,22 +350,24 @@ function renderResults(specs) {
   showView('scan');
 }
 
-$('#save-btn').addEventListener('click', () => {
-  if (!currentSpecs) return;
-  addToHistory(currentSpecs);
-  showToast('Saved to history');
-});
+function initResultsUi() {
+  on($('#save-btn'), 'click', () => {
+    if (!currentSpecs) return;
+    addToHistory(currentSpecs);
+    showToast('Saved to history');
+  });
 
-$('#share-btn').addEventListener('click', async () => {
-  if (!currentSpecs) return;
-  const text = formatSpecsText(currentSpecs);
-  try {
-    await navigator.share({ title: 'LINAK Motor Specs', text });
-  } catch {
-    await navigator.clipboard.writeText(text);
-    showToast('Copied to clipboard');
-  }
-});
+  on($('#share-btn'), 'click', async () => {
+    if (!currentSpecs) return;
+    const text = formatSpecsText(currentSpecs);
+    try {
+      await navigator.share({ title: 'LINAK Motor Specs', text });
+    } catch {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard');
+    }
+  });
+}
 
 function formatSpecsText(s) {
   const lines = [
@@ -398,12 +417,14 @@ function renderHistory() {
   });
 }
 
-$('#clear-history-btn').addEventListener('click', () => {
-  if (confirm('Clear all saved scans?')) {
-    clearHistory();
-    renderHistory();
-  }
-});
+function initHistoryUi() {
+  on($('#clear-history-btn'), 'click', () => {
+    if (confirm('Clear all saved scans?')) {
+      clearHistory();
+      renderHistory();
+    }
+  });
+}
 
 // --- Models list ---
 function renderModels() {
@@ -433,9 +454,25 @@ function escapeHtml(s) {
 }
 
 // --- PWA ---
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+function initServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
 }
 
-// Init
-showView('scan');
+function bootApp() {
+  try {
+    initNavigation();
+    initCameraUi();
+    initOcrUi();
+    initResultsUi();
+    initHistoryUi();
+    initServiceWorker();
+    showView('scan');
+  } catch (err) {
+    console.error('LINAK app init failed:', err);
+    window.__linakShowBootError?.('App init failed: ' + (err.message || 'unknown error'));
+  }
+}
+
+bootApp();
