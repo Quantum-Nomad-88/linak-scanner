@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.svg" />
-  <link rel="stylesheet" href="css/app.css?v=10" />
+  <link rel="stylesheet" href="css/app.css?v=11" />
 </head>
 <body>
   <header class="header">
@@ -47,11 +47,12 @@
         <div id="camera-wrap" class="camera-wrap hidden">
           <video id="camera-video" class="camera" playsinline autoplay muted></video>
           <div id="camera-overlay" class="camera-overlay" aria-hidden="true">
-            <div id="overlay-top" class="overlay-shade"></div>
-            <div id="overlay-left" class="overlay-shade"></div>
-            <div id="scan-frame" class="scan-frame"></div>
-            <div id="overlay-right" class="overlay-shade"></div>
-            <div id="overlay-bottom" class="overlay-shade"></div>
+            <div id="scan-frame" class="scan-frame">
+              <span class="scan-corner tl"></span>
+              <span class="scan-corner tr"></span>
+              <span class="scan-corner bl"></span>
+              <span class="scan-corner br"></span>
+            </div>
             <p id="scan-frame-hint" class="scan-frame-hint">Align the Type code in the box</p>
           </div>
         </div>

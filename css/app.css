@@ -173,6 +173,8 @@ body {
 }
 
 .camera {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: min(52vh, 420px);
@@ -183,42 +185,12 @@ body {
 .camera-overlay {
   position: absolute;
   inset: 0;
+  z-index: 10;
   pointer-events: none;
+  transform: translateZ(0);
 }
 
-.overlay-shade {
-  position: absolute;
-  background: rgba(0, 0, 0, 0.55);
-}
-
-#overlay-top {
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--frame-y, 30%);
-}
-
-#overlay-bottom {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: calc(var(--frame-y, 30%) + var(--frame-h, 14%));
-}
-
-#overlay-left {
-  left: 0;
-  top: var(--frame-y, 30%);
-  width: var(--frame-x, 4%);
-  height: var(--frame-h, 14%);
-}
-
-#overlay-right {
-  right: 0;
-  top: var(--frame-y, 30%);
-  left: calc(var(--frame-x, 4%) + var(--frame-w, 92%));
-  height: var(--frame-h, 14%);
-}
-
+/* Giant box-shadow darkens everything outside the scan window */
 .scan-frame {
   position: absolute;
   left: var(--frame-x, 4%);
@@ -226,21 +198,36 @@ body {
   width: var(--frame-w, 92%);
   height: var(--frame-h, 14%);
   border: 2px solid var(--accent2);
-  border-radius: 6px;
-  box-shadow: 0 0 12px rgba(0, 136, 238, 0.5);
-  z-index: 2;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
+  background: transparent;
 }
+
+.scan-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: #fff;
+  border-style: solid;
+}
+
+.scan-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
+.scan-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
+.scan-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
+.scan-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
 
 .scan-frame-hint {
   position: absolute;
   left: 50%;
-  bottom: 8%;
+  top: calc(var(--frame-y, 30%) + var(--frame-h, 14%) + 12px);
   transform: translateX(-50%);
-  width: 90%;
+  width: 92%;
   text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #fff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 1);
+  z-index: 11;
 }
 
 .preview {

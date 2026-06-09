@@ -60,6 +60,8 @@ function applyScanFrameUi() {
 }
 
 function initCameraUi() {
+  applyScanFrameUi();
+
   $$('input[name="scan-mode"]').forEach((el) => {
     on(el, 'change', applyScanFrameUi);
   });
