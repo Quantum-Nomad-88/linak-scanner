@@ -3,6 +3,7 @@
  */
 
 import { extractTypeCode, normalizeLabelInput } from './type-code.js';
+import { inferFamilyHintsFromLabel, familyFromPrefix } from './motor-catalog.js';
 
 const ITEM_NO_RE = /Item\s*(?:no|#)?\.?\s*:?\s*([A-Z]{0,2}[0-9]{2,4}[-–][0-9A-Z]{3,4}[-–][0-9A-Z]{2}|[0-9]{6}[-–][0-9A-Z]{2,4})/i;
 const WO_RE = /W\s*\/\s*O\s*#?\s*(\d{7,8}[-–]\d{4})/i;
@@ -46,29 +47,28 @@ function parseDutyCycle(line) {
 
 function inferModelFromTypeCode(typeCode) {
   if (!typeCode) return [];
-  const models = [];
-  const compact = typeCode.replace(/\s/g, '').toUpperCase();
-  const prefix2 = compact.substring(0, 2);
-
-  const map = {
-    '12': 'LA12', '18': 'LA18', '20': 'LA20', '22': 'LA22', '23': 'LA23',
-    '25': 'LA25', '27': 'LA27', '28': 'LA28', '29': 'LA29', '30': 'LA30',
-    '31': 'LA31', '32': 'LA32', '34': 'LA34', '35': 'LA35', '36': 'LA36',
-    '40': 'LA40', '42': 'LA42', '43': 'LA43', '44': 'LA44',
-  };
-
-  if (map[prefix2]) models.push(map[prefix2]);
-  return models;
+  const prefix2 = typeCode.replace(/\s/g, '').toUpperCase().substring(0, 2);
+  const fam = familyFromPrefix(prefix2);
+  return fam ? [fam] : [];
 }
 
 /**
  * @param {string} rawText
  * @returns {import('./engine.js').ParsedLabel}
  */
-export function parseLabelText(rawText) {
+export function parseLabelText(rawText, hints = {}) {
   const normalizedMultiline = normalizeLabelInput(rawText);
 
-  const typeCode = extractTypeCode(normalizedMultiline);
+  const labelFamilies = inferFamilyHintsFromLabel(normalizedMultiline);
+  const mergedHints = {
+    expectedFamilies: [...new Set([...(hints.expectedFamilies || []), ...labelFamilies])],
+    expectedPrefixes: [...new Set([
+      ...(hints.expectedPrefixes || []),
+      ...labelFamilies.map((f) => f.replace(/^LA/, '')),
+    ])],
+  };
+
+  const typeCode = extractTypeCode(normalizedMultiline, mergedHints);
   const itemMatch = normalizedMultiline.match(ITEM_NO_RE);
   const woMatch = normalizedMultiline.match(WO_RE);
   const dateMatch = normalizedMultiline.match(DATE_RE);
@@ -78,7 +78,12 @@ export function parseLabelText(rawText) {
   const strokeInline = normalizedMultiline.match(STROKE_INLINE_RE);
 
   const models = [...normalizedMultiline.matchAll(LA_MODEL_RE)].map((m) => m[1].toUpperCase());
-  const uniqueModels = [...new Set([...inferModelFromTypeCode(typeCode), ...models])];
+  const uniqueModels = [...new Set([
+    ...mergedHints.expectedFamilies,
+    ...inferModelFromTypeCode(typeCode),
+    ...models.filter((m) => /^LA\d{2}$/.test(m) && familyFromPrefix(m.slice(2))),
+    ...models.filter((m) => /^(BB3|BL4)$/.test(m)),
+  ])];
 
   const fromLoad = parseMaxLoad(loadMatch?.[1]);
   const fromPower = parsePowerRate(powerMatch?.[1]);

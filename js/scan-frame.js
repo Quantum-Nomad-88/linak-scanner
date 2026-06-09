@@ -3,13 +3,16 @@
  * Tuned for LINAK labels — type code is the first spec row on the right.
  */
 
-/** Wide strip for a single type-code line e.g. 27210B+1130504A */
+/**
+ * Tight crop — right column Type value only (skips "Type:" label and rows below).
+ * e.g. 27210B+1130504A or 300402000D0MC26+1011AA149060E
+ */
 export const TYPE_CODE_MASK = {
-  x: 0.04,
-  y: 0.30,
-  w: 0.92,
-  h: 0.14,
-  label: 'Align the Type code in the box',
+  x: 0.36,
+  y: 0.275,
+  w: 0.60,
+  h: 0.065,
+  label: 'Line up the Type code only (right side)',
 };
 
 /** Full sticker area for all label fields */

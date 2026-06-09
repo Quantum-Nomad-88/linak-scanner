@@ -1,8 +1,14 @@
 import { ACTUATOR_FAMILIES, findFamilyByTypeCode } from './families.js';
 import { parseLabelText } from './label-parser.js';
-import { extractTypeCode, sanitizeTypeCode } from './type-code.js';
+import { extractTypeCode, repairOcrTypeCode, sanitizeTypeCode } from './type-code.js';
 import { decodePlusTypeCode } from './plus-decode.js';
 import { formatInstallFormula, fullyExtended } from './dimensions.js';
+import {
+  buildDecodeHints,
+  familyFromPrefix,
+  isValidFamilyPrefix,
+  typeCodePrefix,
+} from './motor-catalog.js';
 
 function mergeField(labelVal, decodedVal, sources, key) {
   if (labelVal) { sources.push(`${key}: label`); return labelVal; }
@@ -13,17 +19,37 @@ function mergeField(labelVal, decodedVal, sources, key) {
 /**
  * Direct decode from a type code string — most reliable path for paste.
  */
-export function decodeByTypeCode(typeCode) {
-  const clean = sanitizeTypeCode(typeCode);
+export function decodeByTypeCode(typeCode, labelHints = {}) {
+  const clean = repairOcrTypeCode(sanitizeTypeCode(typeCode), labelHints);
   if (!clean) return null;
 
+  const prefix2 = typeCodePrefix(clean);
+  const warnings = [];
+
+  if (!isValidFamilyPrefix(prefix2)) {
+    return {
+      model: null,
+      typeCode: clean,
+      confidence: 5,
+      warnings: [`Unrecognised actuator prefix "${prefix2}" — valid families are LA12–LA44, BB3, BL4.`],
+      sources: ['type code rejected — invalid family'],
+    };
+  }
+
   const family = findFamilyByTypeCode(clean);
+  const identifiedModel = family?.id ?? familyFromPrefix(prefix2);
   let decoded = {};
 
   if (family) {
     decoded = family.decodeTypeCode(clean);
   } else if (clean.includes('+')) {
     decoded = decodePlusTypeCode(clean) || {};
+  }
+
+  if (labelHints.expectedFamilies?.length && !labelHints.expectedFamilies.includes(identifiedModel)) {
+    warnings.push(
+      `Type code suggests ${identifiedModel} but label hints ${labelHints.expectedFamilies.join(', ')} — verify code.`
+    );
   }
 
   const strokeMm = decoded.strokeMm ?? null;
@@ -39,7 +65,7 @@ export function decodeByTypeCode(typeCode) {
   }
 
   return {
-    model: family?.id ?? (decoded.familyDigits ? `LA${decoded.familyDigits}` : null),
+    model: identifiedModel,
     typeCode: clean,
     strokeMm,
     strokeSource: decoded.strokeSource ?? null,
@@ -56,8 +82,11 @@ export function decodeByTypeCode(typeCode) {
     motorVariant: decoded.motorVariant ?? null,
     brake: decoded.brake ?? null,
     confidence: clean ? (strokeMm ? 80 : 40) : 0,
-    warnings: strokeMm ? [] : ['Could not decode stroke from type code. Check the code is correct.'],
-    sources: ['type code direct decode'],
+    warnings: [
+      ...warnings,
+      ...(strokeMm ? [] : ['Could not decode stroke from type code. Check the code is correct.']),
+    ],
+    sources: ['type code direct decode', identifiedModel ? `motor: ${identifiedModel}` : null].filter(Boolean),
   };
 }
 
@@ -65,15 +94,16 @@ export function decodeByTypeCode(typeCode) {
  * @param {string} rawText
  */
 export function decodeMotorSpecs(rawText) {
-  const parsed = parseLabelText(rawText);
+  const hints = buildDecodeHints(rawText);
+  const parsed = parseLabelText(rawText, hints);
   const warnings = [];
   const sources = [];
 
-  const typeCode = parsed.typeCode || extractTypeCode(rawText);
+  const typeCode = parsed.typeCode || extractTypeCode(rawText, hints);
 
   // If we have a type code, use direct decode as primary (most reliable)
   if (typeCode) {
-    const direct = decodeByTypeCode(typeCode);
+    const direct = decodeByTypeCode(typeCode, hints);
     if (direct) {
       // Merge label fields (load, voltage, date) on top of type-code decode
       return {

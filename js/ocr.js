@@ -8,6 +8,7 @@ import {
   isValidTypeCode,
 } from './decoders/type-code.js';
 import { scoreTypeCodeCandidate } from './decoders/type-code-repair.js';
+import { buildDecodeHints } from './decoders/motor-catalog.js';
 
 let worker = null;
 
@@ -80,22 +81,24 @@ function binarizeCanvas(source, threshold = 135) {
 
 function bestTypeCodeFromBlobs(blobs) {
   const rawCandidates = [];
+  const ocrRaw = blobs.join('');
+  const hints = buildDecodeHints(ocrRaw);
 
   for (const blob of blobs) {
     if (!blob) continue;
     rawCandidates.push(blob);
-    rawCandidates.push(extractTypeCode(blob));
+    rawCandidates.push(extractTypeCode(blob, hints));
 
     const compact = blob.replace(/\s/g, '').toUpperCase();
     const extSplit = compact.match(/(\d{2}[A-Z0-9]{4,32})[:+]+([A-Z0-9]{4,32})/);
     if (extSplit) rawCandidates.push(`${extSplit[1]}+${extSplit[2]}`);
 
     const split = compact.match(/(\d{4,8})[:+B8]?(\d{6,}[A-Z0-9]*)/);
-    if (split) rawCandidates.push(repairPlusTypeCode(split[1], split[2]));
+    if (split) rawCandidates.push(repairPlusTypeCode(split[1], split[2], hints));
 
     const digitsOnly = compact.replace(/[^0-9+A-Z]/g, '');
     const joined = digitsOnly.match(/^(\d{5,6}[A-Z]?)(\d{6,}[A-Z0-9]*)$/);
-    if (joined) rawCandidates.push(repairPlusTypeCode(joined[1], joined[2]));
+    if (joined) rawCandidates.push(repairPlusTypeCode(joined[1], joined[2], hints));
 
     const extJoined = digitsOnly.match(/^(\d{2}[A-Z0-9]{6,32})(\d{2}[A-Z0-9]{6,32})$/);
     if (extJoined) rawCandidates.push(`${extJoined[1]}+${extJoined[2]}`);
@@ -104,12 +107,11 @@ function bestTypeCodeFromBlobs(blobs) {
     if (loose) rawCandidates.push(loose[1]);
   }
 
-  const ocrRaw = blobs.join('');
-  const best = bestRepairedTypeCode(rawCandidates.filter(Boolean), ocrRaw);
+  const best = bestRepairedTypeCode(rawCandidates.filter(Boolean), ocrRaw, hints);
   if (best && isValidTypeCode(best)) return best;
 
-  const repaired = rawCandidates.map(repairOcrTypeCode).filter(isValidTypeCode);
-  repaired.sort((a, b) => scoreTypeCodeCandidate(b, ocrRaw) - scoreTypeCodeCandidate(a, ocrRaw));
+  const repaired = rawCandidates.map((c) => repairOcrTypeCode(c, hints)).filter(isValidTypeCode);
+  repaired.sort((a, b) => scoreTypeCodeCandidate(b, ocrRaw, hints) - scoreTypeCodeCandidate(a, ocrRaw, hints));
   return repaired[0] || null;
 }
 

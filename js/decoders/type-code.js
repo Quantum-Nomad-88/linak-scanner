@@ -2,7 +2,8 @@
  * Shared type-code normalization and extraction for LINAK labels.
  */
 
-import { repairOcrTypeCode, bestRepairedTypeCode } from './type-code-repair.js';
+import { isValidFamilyPrefix } from './motor-catalog.js';
+import { repairOcrTypeCode, bestRepairedTypeCode, isValidTypeCode as repairValid } from './type-code-repair.js';
 
 /** Strip to valid type-code characters only */
 export function sanitizeTypeCode(raw) {
@@ -51,18 +52,18 @@ function isKnownPlusSuffix(s) {
   return KNOWN_SUFFIXES.some((re) => re.test(clean));
 }
 
-function combinePlusParts(prefix, suffix) {
+function combinePlusParts(prefix, suffix, hints = {}) {
   const p = (prefix || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   const s = (suffix || '').replace(/^[:+]/, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   if (!p || !s) return null;
-  return repairOcrTypeCode(`${p}+${s}`);
+  return repairOcrTypeCode(`${p}+${s}`, hints);
 }
 
 /**
  * Repair OCR-damaged prefix when suffix is known.
  * e.g. 72108 + 1130504A → 27210B+1130504A
  */
-export function repairPlusTypeCode(prefix, suffix) {
+export function repairPlusTypeCode(prefix, suffix, hints = {}) {
   let p = (prefix || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   let s = (suffix || '').replace(/^[:+]/, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   if (!p || !s) return null;
@@ -76,15 +77,11 @@ export function repairPlusTypeCode(prefix, suffix) {
     if (p.startsWith('27') && p.length === 5 && /^\d+$/.test(p)) p += 'B';
   }
 
-  return combinePlusParts(p, s);
+  return combinePlusParts(p, s, hints);
 }
 
 export function isValidTypeCode(code) {
-  if (!code) return false;
-  const c = sanitizeTypeCode(code);
-  if (c.length < 10) return false;
-  if (!c.includes('+') && !c.includes('-')) return false;
-  return SHORT_PLUS_RE.test(c) || FLEXIBLE_PLUS_RE.test(c) || DASH_TYPE_RE.test(c);
+  return repairValid(code);
 }
 
 export function isExtendedPlusCode(code) {
@@ -92,29 +89,30 @@ export function isExtendedPlusCode(code) {
   return FLEXIBLE_PLUS_RE.test(c) && !SHORT_PLUS_RE.test(c);
 }
 
-function pickLongestPlusMatch(hits) {
+function pickLongestPlusMatch(hits, hints = {}) {
   if (!hits.length) return null;
-  hits.sort((a, b) => b[1].length - a[1].length);
-  return repairOcrTypeCode(hits[0][1]);
+  const sorted = [...hits].sort((a, b) => b[1].length - a[1].length);
+  const candidates = sorted.map((h) => repairOcrTypeCode(h[1], hints)).filter(isValidTypeCode);
+  return candidates[0] || null;
 }
 
-function finalizeCandidate(raw) {
-  const repaired = repairOcrTypeCode(raw);
+function finalizeCandidate(raw, hints = {}) {
+  const repaired = repairOcrTypeCode(raw, hints);
   return isValidTypeCode(repaired) ? repaired : null;
 }
 
-function extractSplitTypeCode(text) {
+function extractSplitTypeCode(text, hints = {}) {
   const compact = text.replace(/\s/g, '').toUpperCase();
 
   const extSplit = compact.match(/(\d{2}[A-Z0-9]{4,32})[:+]+([A-Z0-9]{4,32})/);
   if (extSplit) {
-    const combined = combinePlusParts(extSplit[1], extSplit[2]);
+    const combined = combinePlusParts(extSplit[1], extSplit[2], hints);
     if (combined && isValidTypeCode(combined)) return combined;
   }
 
   const split = compact.match(/(\d{4,8})[:+]+(\d{6,}[A-Z0-9]*)/);
   if (split) {
-    const repaired = repairPlusTypeCode(split[1], split[2]);
+    const repaired = repairPlusTypeCode(split[1], split[2], hints);
     if (repaired && isValidTypeCode(repaired)) return repaired;
   }
 
@@ -123,7 +121,7 @@ function extractSplitTypeCode(text) {
     const left = lines[i].replace(/^Type:?\s*/i, '').replace(/[^A-Z0-9]/gi, '');
     const right = lines[i + 1].replace(/^[:+]/, '').replace(/[^A-Z0-9]/gi, '');
     if (left.length >= 4 && right.length >= 4) {
-      const combined = combinePlusParts(left, right) || repairPlusTypeCode(left, right);
+      const combined = combinePlusParts(left, right, hints) || repairPlusTypeCode(left, right, hints);
       if (combined && isValidTypeCode(combined)) return combined;
     }
   }
@@ -131,18 +129,19 @@ function extractSplitTypeCode(text) {
   return null;
 }
 
-function extractJoinedPlus(compact) {
+function extractJoinedPlus(compact, hints = {}) {
   const plusIdx = compact.indexOf('+');
   if (plusIdx > 2) {
     const combined = finalizeCandidate(
-      `${compact.substring(0, plusIdx)}+${compact.substring(plusIdx + 1)}`
+      `${compact.substring(0, plusIdx)}+${compact.substring(plusIdx + 1)}`,
+      hints
     );
     if (combined) return combined;
   }
 
   const lostPlus = compact.match(/^(\d{2}[A-Z0-9]{6,32})(\d{2}[A-Z0-9]{6,32})$/);
   if (lostPlus) {
-    const combined = combinePlusParts(lostPlus[1], lostPlus[2]);
+    const combined = combinePlusParts(lostPlus[1], lostPlus[2], hints);
     if (combined && isValidTypeCode(combined)) return combined;
   }
 
@@ -150,48 +149,48 @@ function extractJoinedPlus(compact) {
 }
 
 /** Loose match — find anything that looks like a type code, then repair */
-function extractLoosePlus(compact) {
+function extractLoosePlus(compact, hints = {}) {
   const loose = compact.match(/(\d{2}[A-Z0-9]{6,32}\+[A-Z0-9]{6,32})/);
-  if (loose) return finalizeCandidate(loose[1]);
+  if (loose) return finalizeCandidate(loose[1], hints);
   return null;
 }
 
-export function extractTypeCode(text) {
+export function extractTypeCode(text, hints = {}) {
   const normalized = normalizeLabelInput(text);
   if (!normalized) return null;
 
   const compact = sanitizeTypeCode(normalized);
 
-  const direct = finalizeCandidate(compact);
+  const direct = finalizeCandidate(compact, hints);
   if (direct) return direct;
 
-  const joined = extractJoinedPlus(compact);
+  const joined = extractJoinedPlus(compact, hints);
   if (joined) return joined;
 
-  const split = extractSplitTypeCode(normalized) || extractSplitTypeCode(compact);
+  const split = extractSplitTypeCode(normalized, hints) || extractSplitTypeCode(compact, hints);
   if (split) return split;
 
   const typeLine = normalized.match(/Type\.?\s*:?\s*([A-Z0-9+]{10,})/i);
   if (typeLine) {
-    const candidate = finalizeCandidate(typeLine[1]);
+    const candidate = finalizeCandidate(typeLine[1], hints);
     if (candidate) return candidate;
 
     const rest = normalized.match(/Type\.?\s*:?\s*[A-Z0-9+]+\s+([A-Z0-9]{4,})/i);
     if (rest) {
       const prefix = typeLine[1].replace(/[^A-Z0-9]/gi, '');
-      const combined = combinePlusParts(prefix, rest[1]) || repairPlusTypeCode(prefix, rest[1]);
+      const combined = combinePlusParts(prefix, rest[1], hints) || repairPlusTypeCode(prefix, rest[1], hints);
       if (combined && isValidTypeCode(combined)) return combined;
     }
   }
 
   const spaceJoin = compact.match(/^(\d{4,8}[A-Z0-9]?)(\d{6,}[A-Z0-9]*)$/);
   if (spaceJoin) {
-    const repaired = repairPlusTypeCode(spaceJoin[1], spaceJoin[2]);
+    const repaired = repairPlusTypeCode(spaceJoin[1], spaceJoin[2], hints);
     if (repaired && isValidTypeCode(repaired)) return repaired;
   }
 
   const plusHits = [...compact.matchAll(PLUS_TYPE_RE)];
-  const fromRegex = pickLongestPlusMatch(plusHits);
+  const fromRegex = pickLongestPlusMatch(plusHits, hints);
   if (fromRegex && isValidTypeCode(fromRegex)) return fromRegex;
 
   const dashHits = [...compact.matchAll(/(\d{6}-\d{6,10}[A-Z0-9]*)/gi)];
@@ -209,12 +208,12 @@ export function extractTypeCode(text) {
     const before = compact.substring(0, compact.indexOf(suffixMatch[1]));
     const prefixMatch = before.match(/(\d{2}[A-Z0-9]{4,32})$/);
     if (prefixMatch) {
-      const combined = combinePlusParts(prefixMatch[1], suffixMatch[1]);
+      const combined = combinePlusParts(prefixMatch[1], suffixMatch[1], hints);
       if (combined && isValidTypeCode(combined)) return combined;
     }
   }
 
-  return extractLoosePlus(compact);
+  return extractLoosePlus(compact, hints);
 }
 
 export { repairOcrTypeCode, bestRepairedTypeCode };

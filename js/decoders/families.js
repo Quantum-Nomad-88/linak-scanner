@@ -6,15 +6,9 @@ import { decodePlusTypeCode, parsePlusTypeCode } from './plus-decode.js';
 import { carelineBuiltIn, la36BuiltIn, la12BuiltIn } from './dimensions.js';
 import { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES } from './constants.js';
 import { sanitizeTypeCode } from './type-code.js';
+import { familyFromPrefix, isValidFamilyPrefix } from './motor-catalog.js';
 
 export { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES };
-
-const PREFIX_TO_FAMILY = {
-  '12': 'LA12', '18': 'LA18', '20': 'LA20', '22': 'LA22', '23': 'LA23',
-  '25': 'LA25', '27': 'LA27', '28': 'LA28', '29': 'LA29', '30': 'LA30',
-  '31': 'LA31', '32': 'LA32', '34': 'LA34', '35': 'LA35', '36': 'LA36',
-  '40': 'LA40', '42': 'LA42', '43': 'LA43', '44': 'LA44',
-};
 
 function decodeTypeCodeForFamily(typeCode, family) {
   const clean = sanitizeTypeCode(typeCode);
@@ -134,8 +128,8 @@ export function findFamilyByTypeCode(typeCode) {
   if (!parts) return null;
 
   const prefix2 = parts.before.substring(0, 2);
-  const familyId = PREFIX_TO_FAMILY[prefix2];
-  if (familyId) {
+  const familyId = familyFromPrefix(prefix2);
+  if (familyId && isValidFamilyPrefix(prefix2)) {
     const f = ACTUATOR_FAMILIES.find((x) => x.id === familyId);
     if (f) return f;
   }
