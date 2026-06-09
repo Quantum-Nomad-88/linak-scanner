@@ -119,8 +119,12 @@ export const ACTUATOR_FAMILIES = [
     id: 'LA27',
     names: ['LA27', 'LA27CS'],
     typePrefixes: ['27'],
+    altPatterns: [/27\d{3}[A-Z]?\+\d{6,}/i],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke) {
+      return stroke <= 115 ? 288 : stroke + 173;
+    },
     decodeTypeCode(typeCode) {
       const parts = splitTypeCode(typeCode);
       if (!parts) return {};
@@ -365,7 +369,7 @@ export function splitTypeCode(typeCode) {
   const dash = cleaned.match(/^([A-Z0-9]{4,6})-([A-Z0-9]{6,12})$/);
   if (dash) return { before: dash[1], after: dash[2], full: cleaned, separator: '-' };
 
-  const plus = cleaned.match(/^([A-Z0-9]{5,7})\+([A-Z0-9]{6,10}[A-Z]?)$/);
+  const plus = cleaned.match(/^(\d{5}[A-Z0-9]?)\+(\d{6,9}[A-Z]?)$/);
   if (plus) return { before: plus[1], after: plus[2], full: cleaned, separator: '+' };
 
   return null;

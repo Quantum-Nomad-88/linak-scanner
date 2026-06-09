@@ -1,4 +1,5 @@
 import { decodeMotorSpecs, getAllSupportedModels } from './decoders/engine.js';
+import { extractTypeCode, normalizeLabelInput } from './decoders/type-code.js';
 import { recognizeText } from './ocr.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
@@ -135,14 +136,38 @@ $('#type-code-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') decodeAndShow(rawTextArea.value);
 });
 
+$('#type-code-input').addEventListener('paste', () => {
+  setTimeout(() => decodeAndShow(rawTextArea.value), 50);
+});
+
+rawTextArea.addEventListener('paste', () => {
+  setTimeout(() => decodeAndShow(rawTextArea.value), 50);
+});
+
 function decodeAndShow(text) {
-  const typeOverride = $('#type-code-input').value.trim();
-  let fullText = text;
-  if (typeOverride && !text.includes(typeOverride)) {
-    fullText = `Type.: ${typeOverride}\n${text}`;
+  const typeOverride = normalizeLabelInput($('#type-code-input').value);
+  const bodyText = normalizeLabelInput(text);
+
+  let fullText = bodyText;
+
+  // Type override field always wins
+  if (typeOverride) {
+    fullText = `Type: ${typeOverride}\n${bodyText}`;
+  } else {
+    // Bare type code pasted alone e.g. "27210B+1130504A"
+    const bare = extractTypeCode(bodyText);
+    if (bare && bodyText.replace(/\s/g, '').toUpperCase() === bare) {
+      fullText = `Type: ${bare}`;
+    }
   }
 
   currentSpecs = decodeMotorSpecs(fullText);
+
+  // Fallback: decode type override directly
+  if (!currentSpecs.typeCode && typeOverride) {
+    currentSpecs = decodeMotorSpecs(`Type: ${typeOverride}`);
+  }
+
   renderResults(currentSpecs);
 
   if (currentImageDataUrl) {
