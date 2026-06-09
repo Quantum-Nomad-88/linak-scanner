@@ -1,6 +1,7 @@
 import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
 import { extractTypeCode, normalizeLabelInput, sanitizeTypeCode } from './decoders/type-code.js';
-import { recognizeText } from './ocr.js';
+import { recognizeText, recognizeTypeCodeOnly } from './ocr.js';
+import { cropToMask, getMaskForMode } from './scan-frame.js';
 import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,6 +28,9 @@ function showView(name) {
 // --- Camera / file ---
 const video = $('#camera-video');
 const canvas = $('#capture-canvas');
+const cameraWrap = $('#camera-wrap');
+const scanFrame = $('#scan-frame');
+const scanFrameHint = $('#scan-frame-hint');
 const fileInput = $('#file-input');
 const cameraBtn = $('#camera-btn');
 const galleryBtn = $('#gallery-btn');
@@ -34,10 +38,30 @@ const captureBtn = $('#capture-btn');
 const stopCameraBtn = $('#stop-camera-btn');
 let stream = null;
 
+function getScanMode() {
+  const checked = document.querySelector('input[name="scan-mode"]:checked');
+  return checked?.value === 'full' ? 'full' : 'type';
+}
+
+function applyScanFrameUi() {
+  const mask = getMaskForMode(getScanMode());
+  const root = cameraWrap;
+  root.style.setProperty('--frame-x', `${mask.x * 100}%`);
+  root.style.setProperty('--frame-y', `${mask.y * 100}%`);
+  root.style.setProperty('--frame-w', `${mask.w * 100}%`);
+  root.style.setProperty('--frame-h', `${mask.h * 100}%`);
+  scanFrameHint.textContent = mask.label;
+}
+
+$$('input[name="scan-mode"]').forEach((el) => {
+  el.addEventListener('change', applyScanFrameUi);
+});
+
 cameraBtn.addEventListener('click', startCamera);
 galleryBtn.addEventListener('click', () => fileInput.click());
 captureBtn.addEventListener('click', captureFromCamera);
 stopCameraBtn.addEventListener('click', stopCamera);
+applyScanFrameUi();
 
 fileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -53,7 +77,8 @@ async function startCamera() {
       video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
     });
     video.srcObject = stream;
-    video.classList.remove('hidden');
+    applyScanFrameUi();
+    cameraWrap.classList.remove('hidden');
     captureBtn.classList.remove('hidden');
     stopCameraBtn.classList.remove('hidden');
     cameraBtn.classList.add('hidden');
@@ -68,10 +93,18 @@ function stopCamera() {
     stream = null;
   }
   video.srcObject = null;
-  video.classList.add('hidden');
+  cameraWrap.classList.add('hidden');
   captureBtn.classList.add('hidden');
   stopCameraBtn.classList.add('hidden');
   cameraBtn.classList.remove('hidden');
+}
+
+function prepareScanCanvas(sourceCanvas) {
+  const mode = getScanMode();
+  const mask = getMaskForMode(mode);
+  const cropped = cropToMask(sourceCanvas, mask);
+  currentImageDataUrl = cropped.toDataURL('image/jpeg', 0.95);
+  return { cropped, mode };
 }
 
 async function captureFromCamera() {
@@ -79,9 +112,9 @@ async function captureFromCamera() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
-  currentImageDataUrl = canvas.toDataURL('image/jpeg', 0.92);
   stopCamera();
-  await runOcr(canvas);
+  const { cropped, mode } = prepareScanCanvas(canvas);
+  await runOcr(cropped, mode);
 }
 
 async function processImageFile(file) {
@@ -91,9 +124,9 @@ async function processImageFile(file) {
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     canvas.getContext('2d').drawImage(img, 0, 0);
-    currentImageDataUrl = canvas.toDataURL('image/jpeg', 0.92);
     URL.revokeObjectURL(url);
-    await runOcr(canvas);
+    const { cropped, mode } = prepareScanCanvas(canvas);
+    await runOcr(cropped, mode);
   };
   img.src = url;
 }
@@ -107,27 +140,32 @@ document.addEventListener('ocr-progress', (e) => {
   progressBar.style.width = `${e.detail}%`;
 });
 
-async function runOcr(imageSource) {
-  setLoading(true, 'Reading label…');
+async function runOcr(imageSource, mode = getScanMode()) {
+  setLoading(true, mode === 'type' ? 'Reading type code…' : 'Reading label…');
   progressWrap.classList.remove('hidden');
   progressBar.style.width = '0%';
 
   try {
-    const result = await recognizeText(imageSource);
+    const result = mode === 'type'
+      ? await recognizeTypeCodeOnly(imageSource)
+      : await recognizeText(imageSource);
 
-    // Show clean extracted text, not raw OCR goop
     rawTextArea.value = result.cleanText || '';
 
     if (result.typeCode) {
       $('#type-code-input').value = result.typeCode;
     }
 
-    decodeAndShow(result.cleanText || result.rawBlob);
+    decodeAndShow(result.cleanText || result.rawBlob || result.typeCode || '');
 
     if (result.foundCount === 0) {
-      showToast('Could not read label — paste type code manually.');
-    } else if (result.foundCount < 3) {
+      showToast(mode === 'type'
+        ? 'Could not read type code — adjust framing or paste manually.'
+        : 'Could not read label — paste type code manually.');
+    } else if (mode === 'full' && result.foundCount < 3) {
       showToast(`Partial read (${result.foundCount} fields) — check and edit below.`);
+    } else if (mode === 'type' && result.typeCode) {
+      showToast('Type code read — specs decoded.');
     }
   } catch (err) {
     showToast('OCR failed. Paste type code manually.');

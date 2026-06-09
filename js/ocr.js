@@ -1,9 +1,10 @@
 import { extractLabelFromOcr } from './label-extract.js';
-import { repairPlusTypeCode } from './decoders/type-code.js';
+import { extractTypeCode, repairPlusTypeCode, sanitizeTypeCode } from './decoders/type-code.js';
 
 let worker = null;
 
 const CHAR_WHITELIST = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-.:/%#, ';
+const TYPE_CODE_WHITELIST = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+';
 
 async function getWorker() {
   if (!worker) {
@@ -174,6 +175,47 @@ async function ocrCanvas(canvas, psm) {
   const w = await getWorker();
   await w.setParameters({ tessedit_pageseg_mode: psm });
   return (await w.recognize(canvas)).data;
+}
+
+/**
+ * OCR optimised for a cropped type-code line only.
+ */
+export async function recognizeTypeCodeOnly(image) {
+  if (!(image instanceof HTMLCanvasElement)) {
+    const data = await ocrCanvas(image, Tesseract.PSM.SINGLE_LINE);
+    const code = extractTypeCode(data.text || '');
+    return makeTypeCodeResult(code, data.text || '');
+  }
+
+  const upscaled = upscaleCanvas(image, 2400);
+  const enhanced = enhanceCanvas(upscaled);
+  const blobs = [];
+
+  const w = await getWorker();
+
+  for (const psm of [Tesseract.PSM.SINGLE_LINE, Tesseract.PSM.SINGLE_BLOCK, Tesseract.PSM.RAW_LINE]) {
+    await w.setParameters({
+      tessedit_pageseg_mode: psm,
+      tessedit_char_whitelist: TYPE_CODE_WHITELIST,
+    });
+    const { data } = await w.recognize(enhanced);
+    if (data.text?.trim()) blobs.push(data.text.trim());
+  }
+
+  await w.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
+
+  const rawBlob = blobs.join('\n');
+  const code = extractTypeCode(rawBlob) || extractTypeCode(blobs.join(''));
+  return makeTypeCodeResult(code, rawBlob);
+}
+
+function makeTypeCodeResult(code, rawBlob) {
+  return {
+    cleanText: code ? `Type: ${code}` : '',
+    rawBlob,
+    typeCode: code,
+    foundCount: code ? 1 : 0,
+  };
 }
 
 /**

@@ -25,7 +25,18 @@
     <section id="view-scan" class="view">
       <div class="card">
         <h2>Scan label</h2>
-        <p class="hint">Photograph the LINAK sticker or upload an image. Works offline after first load.</p>
+
+        <fieldset class="scan-mode">
+          <legend>Scan mode</legend>
+          <label class="scan-mode-option">
+            <input type="radio" name="scan-mode" value="type" checked />
+            <span><strong>Type code only</strong> — line up the code in the box (recommended)</span>
+          </label>
+          <label class="scan-mode-option">
+            <input type="radio" name="scan-mode" value="full" />
+            <span><strong>Full label</strong> — capture all sticker fields</span>
+          </label>
+        </fieldset>
 
         <div class="btn-row">
           <button type="button" id="camera-btn" class="btn primary">📷 Camera</button>
@@ -33,7 +44,19 @@
           <input type="file" id="file-input" accept="image/*" capture="environment" hidden />
         </div>
 
-        <video id="camera-video" class="camera hidden" playsinline autoplay muted></video>
+        <div id="camera-wrap" class="camera-wrap hidden">
+          <video id="camera-video" class="camera" playsinline autoplay muted></video>
+          <div id="camera-overlay" class="camera-overlay" aria-hidden="true">
+            <div id="overlay-top" class="overlay-shade"></div>
+            <div class="overlay-middle">
+              <div id="overlay-left" class="overlay-shade"></div>
+              <div id="scan-frame" class="scan-frame"></div>
+              <div id="overlay-right" class="overlay-shade"></div>
+            </div>
+            <div id="overlay-bottom" class="overlay-shade"></div>
+            <p id="scan-frame-hint" class="scan-frame-hint">Align the Type code in the box</p>
+          </div>
+        </div>
         <canvas id="capture-canvas" class="hidden"></canvas>
 
         <div class="btn-row">
@@ -111,6 +134,6 @@
   <div id="toast" class="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="js/app.js?v=7"></script>
+  <script type="module" src="js/app.js?v=8"></script>
 </body>
 </html>
