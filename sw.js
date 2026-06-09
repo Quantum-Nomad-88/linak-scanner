@@ -1,4 +1,4 @@
-const CACHE = 'linak-specs-v3';
+const CACHE = 'linak-specs-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,9 @@ const ASSETS = [
   './js/decoders/families.js',
   './js/decoders/label-parser.js',
   './js/decoders/type-code.js',
+  './js/decoders/plus-decode.js',
+  './js/decoders/dimensions.js',
+  './js/decoders/constants.js',
   './manifest.webmanifest',
   './icons/icon-192.svg',
   './icons/icon-512.svg',

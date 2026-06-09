@@ -1,5 +1,6 @@
 import { ACTUATOR_FAMILIES, splitTypeCode } from './families.js';
 import { parseLabelText } from './label-parser.js';
+import { formatInstallFormula, fullyExtended } from './dimensions.js';
 
 /**
  * @typedef {Object} ParsedLabel
@@ -21,19 +22,6 @@ import { parseLabelText } from './label-parser.js';
  */
 
 /**
- * @typedef {Object} ActuatorFamily
- * @property {string} id
- * @property {string[]} names
- * @property {string[]} [typePrefixes]
- * @property {RegExp[]} [altPatterns]
- * @property {number} [strokeMin]
- * @property {number} [strokeMax]
- * @property {number} [strokeStep]
- * @property {(typeCode: string) => object} decodeTypeCode
- * @property {(stroke: number, backFixture?: string) => number} [builtInDimension]
- */
-
-/**
  * @typedef {Object} MotorSpecs
  * @property {string|null} model
  * @property {string|null} typeCode
@@ -41,8 +29,13 @@ import { parseLabelText } from './label-parser.js';
  * @property {string|null} workOrder
  * @property {string|null} productionDate
  * @property {number|null} strokeMm
+ * @property {string|null} strokeSource
+ * @property {number|null} installLengthMm
  * @property {number|null} builtInMm
  * @property {number|null} fullyExtendedMm
+ * @property {string|null} installFormula
+ * @property {string|null} backFixture
+ * @property {string|null} backFixtureDesc
  * @property {string|null} voltage
  * @property {string|null} maxCurrent
  * @property {string|null} maxLoadPush
@@ -86,7 +79,7 @@ function detectFamily(parsed, typeCode) {
   return null;
 }
 
-function mergeField(labelVal, decodedVal, sources, key, sourceName) {
+function mergeField(labelVal, decodedVal, sources, key) {
   if (labelVal) {
     sources.push(`${key}: label`);
     return labelVal;
@@ -122,6 +115,8 @@ export function decodeMotorSpecs(rawText) {
   }
 
   let strokeMm = parsed.strokeFromText ?? decoded.strokeMm ?? null;
+  const strokeSource = decoded.strokeSource ?? (parsed.strokeFromText ? 'label text' : null);
+  const backFixture = decoded.backFixture ?? null;
 
   if (strokeMm && family) {
     if (family.strokeMin && strokeMm < family.strokeMin) {
@@ -132,24 +127,34 @@ export function decodeMotorSpecs(rawText) {
     }
   }
 
-  const voltage = mergeField(parsed.voltage, decoded.voltage, sources, 'voltage', 'label');
-  const ipRating = mergeField(parsed.ipRating, decoded.ipRating, sources, 'ip', 'label');
+  const voltage = mergeField(parsed.voltage, decoded.voltage, sources, 'voltage');
+  const ipRating = mergeField(parsed.ipRating, decoded.ipRating, sources, 'ip');
 
-  let builtInMm = null;
+  let installLengthMm = null;
   let fullyExtendedMm = null;
+  let installFormula = null;
+
   if (strokeMm && family?.builtInDimension) {
-    builtInMm = family.builtInDimension(strokeMm);
-    fullyExtendedMm = builtInMm + strokeMm;
-    sources.push('dimensions: calculated');
+    installLengthMm = family.builtInDimension(strokeMm, backFixture);
+    fullyExtendedMm = fullyExtended(installLengthMm, strokeMm);
+    installFormula = formatInstallFormula(strokeMm, backFixture, installLengthMm);
+    sources.push('install length: calculated from type code');
+  }
+
+  if (strokeMm && !strokeSource) {
+    sources.push('stroke: type code');
+  } else if (strokeMm && strokeSource) {
+    sources.push(`stroke: ${strokeSource}`);
   }
 
   let confidence = 0;
   if (parsed.typeCode) confidence += 25;
   if (family) confidence += 20;
   if (strokeMm) confidence += 20;
-  if (parsed.maxLoadPush || parsed.maxLoadPull) confidence += 15;
-  if (parsed.voltage) confidence += 10;
-  if (parsed.workOrder) confidence += 10;
+  if (installLengthMm) confidence += 15;
+  if (parsed.maxLoadPush || parsed.maxLoadPull) confidence += 10;
+  if (parsed.voltage) confidence += 5;
+  if (parsed.workOrder) confidence += 5;
 
   return {
     model: family?.id ?? parsed.detectedModels[0] ?? null,
@@ -158,8 +163,13 @@ export function decodeMotorSpecs(rawText) {
     workOrder: parsed.workOrder,
     productionDate: parsed.productionDate,
     strokeMm,
-    builtInMm,
+    strokeSource,
+    installLengthMm,
+    builtInMm: installLengthMm,
     fullyExtendedMm,
+    installFormula,
+    backFixture,
+    backFixtureDesc: decoded.backFixtureDesc ?? null,
     voltage,
     maxCurrent: parsed.maxCurrent,
     maxLoadPush: parsed.maxLoadPush,
@@ -179,7 +189,7 @@ export function decodeMotorSpecs(rawText) {
 }
 
 export function decodeFromTypeCode(typeCode, modelHint) {
-  const synthetic = modelHint ? `Type.: ${typeCode}\n${modelHint}` : `Type.: ${typeCode}`;
+  const synthetic = modelHint ? `Type: ${typeCode}\n${modelHint}` : `Type: ${typeCode}`;
   return decodeMotorSpecs(synthetic);
 }
 

@@ -3,50 +3,67 @@
  * Based on public LINAK ordering code structures from user manuals / data sheets.
  */
 
-export const SPINDLE_PITCH = {
-  '1': '2 mm',
-  '2': '4 mm',
-  '3': '6 mm',
-  '4': '4 mm',
-  '5': '5 mm',
-  '6': '12 mm',
-  '7': '6 mm',
-  '8': '8 mm',
-  '9': '9 mm',
-};
+import { decodePlusTypeCode } from './plus-decode.js';
+import { carelineBuiltIn, la36BuiltIn, la12BuiltIn } from './dimensions.js';
+import { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES } from './constants.js';
 
-export const IP_RATINGS = {
-  '0': 'IPX1',
-  '1': 'IPX4',
-  '2': 'IP66',
-  '3': 'IPX4',
-  '4': 'IP54',
-  '5': 'IPX6',
-  '6': 'IPX6 Washable',
-};
+export { SPINDLE_PITCH, IP_RATINGS, MOTOR_VOLTAGE, FEEDBACK_TYPES };
 
-export const MOTOR_VOLTAGE = {
-  '12': '12 V DC',
-  '24': '24 V DC',
-  '36': '36 V DC',
-};
+/**
+ * Unified type-code decoder for dash (+) and plus formats.
+ */
+function decodeTypeCodeForFamily(typeCode, family) {
+  const parts = splitTypeCode(typeCode);
+  if (!parts) return {};
 
-export const FEEDBACK_TYPES = {
-  '0': 'None',
-  B: 'Analogue 0–10 V',
-  C: 'Analogue 0.5–4.5 V',
-  E: 'Reed switch (10 pulses/rev)',
-  M: 'Reed switch (4 pulses/rev)',
-  P: 'Potentiometer',
-  R: 'Reed switch (4 pulses/rev)',
-  S: 'Single Hall',
-  F: 'Analogue 0–10 V',
-  K: 'Analogue 0.5–4.5 V',
-  L: 'Hall (2 pulses/rev)',
-  N: 'Hall (4 pulses/rev)',
-  T: 'Potentiometer 0–10 V',
-  D: 'None (no EOS out)',
-};
+  if (parts.separator === '+') {
+    const decoded = decodePlusTypeCode(
+      typeCode,
+      family.strokeMin ?? 50,
+      family.strokeMax ?? 1200
+    );
+    return decoded || {};
+  }
+
+  const { before, after } = parts;
+  let result;
+
+  if (family.id === 'LA31') {
+    result = pickBestStroke(
+      after,
+      [
+        { strokeStart: 4, strokeLen: 3, voltageStart: 7 },
+        { strokeStart: 1, strokeLen: 3, voltageStart: 4 },
+        { strokeStart: 5, strokeLen: 3, voltageStart: 8 },
+      ],
+      family.strokeMin,
+      family.strokeMax
+    );
+    const motorType = before[2];
+    result.motorVariant =
+      { '0': '24 V DC Standard', '1': '24 V DC Basic L1', '3': '24 V DC Fast L3' }[motorType] ||
+      result.motorVariant;
+    if (after.length > 1) {
+      result.brake = { '0': 'None', '1': 'Brake push', '2': 'Brake pull' }[after[1]] || null;
+    }
+  } else {
+    result = pickBestStroke(
+      after,
+      [
+        { strokeStart: 1, strokeLen: 3, voltageStart: 4 },
+        { strokeStart: 4, strokeLen: 3, voltageStart: 7 },
+      ],
+      family.strokeMin ?? 50,
+      family.strokeMax ?? 1200
+    );
+  }
+
+  if (result.strokeMm && !result.strokeSource) {
+    result.strokeSource = 'type code after dash';
+  }
+
+  return result;
+}
 
 /** @type {import('./engine.js').ActuatorFamily[]} */
 export const ACTUATOR_FAMILIES = [
@@ -58,12 +75,10 @@ export const ACTUATOR_FAMILIES = [
     strokeMax: 130,
     strokeStep: 1,
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after || after.length < 6) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
     builtInDimension(stroke) {
-      return stroke <= 115 ? 288 : stroke + 173;
+      return la12BuiltIn(stroke);
     },
   },
   {
@@ -72,10 +87,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['20'],
     strokeMin: 50,
     strokeMax: 300,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after || after.length < 6) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -85,10 +101,11 @@ export const ACTUATOR_FAMILIES = [
     altPatterns: [/22[Ee]\d{3}-\d{8}/],
     strokeMin: 50,
     strokeMax: 600,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after || after.length < 6) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -97,10 +114,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['23'],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after || after.length < 6) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -109,10 +127,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['25'],
     strokeMin: 100,
     strokeMax: 600,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -122,24 +141,11 @@ export const ACTUATOR_FAMILIES = [
     altPatterns: [/27\d{3}[A-Z]?\+\d{6,}/i],
     strokeMin: 100,
     strokeMax: 400,
-    builtInDimension(stroke) {
-      return stroke <= 115 ? 288 : stroke + 173;
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
     },
     decodeTypeCode(typeCode) {
-      const parts = splitTypeCode(typeCode);
-      if (!parts) return {};
-
-      if (parts.separator === '+') {
-        const stroke = extractStrokeFromSuffix(parts.after, 100, 400);
-        return {
-          strokeMm: stroke,
-          voltage: '24 V DC',
-          ipRating: 'IPX6',
-          feedback: parts.after.endsWith('A') ? 'Reed switch' : null,
-        };
-      }
-
-      return decodeStandardAfterDash(parts.after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -149,10 +155,11 @@ export const ACTUATOR_FAMILIES = [
     altPatterns: [/282\d{3}-\d{8}/],
     strokeMin: 50,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -161,10 +168,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['29'],
     strokeMin: 50,
     strokeMax: 250,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -173,10 +181,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['30'],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -187,30 +196,10 @@ export const ACTUATOR_FAMILIES = [
     strokeMax: 350,
     strokeStep: 5,
     decodeTypeCode(typeCode) {
-      const parts = splitTypeCode(typeCode);
-      if (!parts) return {};
-      const { before, after } = parts;
-      const result = pickBestStroke(after, [
-        { strokeStart: 4, strokeLen: 3, voltageStart: 7 },
-        { strokeStart: 1, strokeLen: 3, voltageStart: 4 },
-        { strokeStart: 5, strokeLen: 3, voltageStart: 8 },
-      ], 50, 350);
-
-      const motorType = before[2];
-      result.motorVariant = { '0': '24 V DC Standard', '1': '24 V DC Basic L1', '3': '24 V DC Fast L3' }[motorType] || null;
-
-      if (after.length > 1) {
-        const brake = after[1];
-        result.brake = { '0': 'None', '1': 'Brake push', '2': 'Brake pull' }[brake] || null;
-      }
-
-      return result;
+      return decodeTypeCodeForFamily(typeCode, this);
     },
-    builtInDimension(stroke, backFixture = '5') {
-      if (stroke <= 115) return 288;
-      const offset = ['A', 'B', 'a', 'b'].includes(backFixture) ? 195 : 173;
-      if (stroke <= 300) return stroke + offset;
-      return stroke + (['A', 'B', 'a', 'b'].includes(backFixture) ? 215 : 212);
+    builtInDimension(stroke, backFixture) {
+      return carelineBuiltIn(stroke, backFixture);
     },
   },
   {
@@ -219,10 +208,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['32'],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -233,12 +223,10 @@ export const ACTUATOR_FAMILIES = [
     strokeMax: 400,
     strokeStep: 5,
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
-    builtInDimension(stroke) {
-      return stroke <= 115 ? 288 : stroke + 173;
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
     },
   },
   {
@@ -247,10 +235,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['35'],
     strokeMin: 100,
     strokeMax: 700,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -260,14 +249,11 @@ export const ACTUATOR_FAMILIES = [
     strokeMin: 50,
     strokeMax: 1200,
     strokeStep: 50,
-    decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
-    },
     builtInDimension(stroke) {
-      if (stroke < 300) return Math.max(300, 200 + stroke);
-      return 250 + stroke;
+      return la36BuiltIn(stroke);
+    },
+    decodeTypeCode(typeCode) {
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -276,10 +262,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['40'],
     strokeMin: 100,
     strokeMax: 600,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -288,10 +275,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['42'],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -300,10 +288,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['43'],
     strokeMin: 100,
     strokeMax: 400,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -314,12 +303,10 @@ export const ACTUATOR_FAMILIES = [
     strokeMax: 400,
     strokeStep: 5,
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
-    builtInDimension(stroke) {
-      return stroke <= 115 ? 288 : stroke + 173;
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
     },
   },
   {
@@ -329,10 +316,11 @@ export const ACTUATOR_FAMILIES = [
     altPatterns: [/BB3/i],
     strokeMin: 350,
     strokeMax: 750,
+    builtInDimension(stroke) {
+      return stroke + 250;
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -342,10 +330,11 @@ export const ACTUATOR_FAMILIES = [
     altPatterns: [/BL4/i],
     strokeMin: 350,
     strokeMax: 750,
+    builtInDimension(stroke) {
+      return stroke + 250;
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
   {
@@ -354,10 +343,11 @@ export const ACTUATOR_FAMILIES = [
     typePrefixes: ['18'],
     strokeMin: 50,
     strokeMax: 300,
+    builtInDimension(stroke, fixture) {
+      return carelineBuiltIn(stroke, fixture);
+    },
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      return decodeTypeCodeForFamily(typeCode, this);
     },
   },
 ];
@@ -373,21 +363,6 @@ export function splitTypeCode(typeCode) {
   if (plus) return { before: plus[1], after: plus[2], full: cleaned, separator: '+' };
 
   return null;
-}
-
-/** Extract stroke from plus-format suffix e.g. 1130504A → 305 mm */
-function extractStrokeFromSuffix(suffix, minStroke, maxStroke) {
-  const matches = [...suffix.matchAll(/\d{3}/g)];
-  let best = null;
-
-  for (const m of matches) {
-    const n = parseInt(m[1], 10);
-    if (n >= minStroke && n <= maxStroke) {
-      if (!best || n % 5 === 0) best = n;
-    }
-  }
-
-  return best;
 }
 
 /**
@@ -406,7 +381,7 @@ function pickBestStroke(after, layouts, minStroke, maxStroke) {
     if (candidate.voltage) score += 2;
     if (score > bestScore) {
       bestScore = score;
-      best = candidate;
+      best = { ...candidate, strokeSource: 'type code after dash' };
     }
   }
 
