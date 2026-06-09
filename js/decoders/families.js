@@ -122,9 +122,20 @@ export const ACTUATOR_FAMILIES = [
     strokeMin: 100,
     strokeMax: 400,
     decodeTypeCode(typeCode) {
-      const after = splitTypeCode(typeCode)?.after;
-      if (!after) return {};
-      return decodeStandardAfterDash(after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
+      const parts = splitTypeCode(typeCode);
+      if (!parts) return {};
+
+      if (parts.separator === '+') {
+        const stroke = extractStrokeFromSuffix(parts.after, 100, 400);
+        return {
+          strokeMm: stroke,
+          voltage: '24 V DC',
+          ipRating: 'IPX6',
+          feedback: parts.after.endsWith('A') ? 'Reed switch' : null,
+        };
+      }
+
+      return decodeStandardAfterDash(parts.after, { strokeStart: 1, strokeLen: 3, voltageStart: 4 });
     },
   },
   {
@@ -350,9 +361,29 @@ export const ACTUATOR_FAMILIES = [
 export function splitTypeCode(typeCode) {
   if (!typeCode) return null;
   const cleaned = typeCode.replace(/\s/g, '').toUpperCase();
-  const match = cleaned.match(/^([A-Z0-9]{4,6})-([A-Z0-9]{6,12})$/);
-  if (!match) return null;
-  return { before: match[1], after: match[2], full: cleaned };
+
+  const dash = cleaned.match(/^([A-Z0-9]{4,6})-([A-Z0-9]{6,12})$/);
+  if (dash) return { before: dash[1], after: dash[2], full: cleaned, separator: '-' };
+
+  const plus = cleaned.match(/^([A-Z0-9]{5,7})\+([A-Z0-9]{6,10}[A-Z]?)$/);
+  if (plus) return { before: plus[1], after: plus[2], full: cleaned, separator: '+' };
+
+  return null;
+}
+
+/** Extract stroke from plus-format suffix e.g. 1130504A → 305 mm */
+function extractStrokeFromSuffix(suffix, minStroke, maxStroke) {
+  const matches = [...suffix.matchAll(/\d{3}/g)];
+  let best = null;
+
+  for (const m of matches) {
+    const n = parseInt(m[1], 10);
+    if (n >= minStroke && n <= maxStroke) {
+      if (!best || n % 5 === 0) best = n;
+    }
+  }
+
+  return best;
 }
 
 /**
