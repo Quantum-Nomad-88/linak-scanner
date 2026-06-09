@@ -47,8 +47,8 @@
 
         <img id="preview-img" class="preview hidden" alt="Scanned label" />
 
-        <label class="field-label" for="raw-text">OCR text (edit if needed)</label>
-        <textarea id="raw-text" rows="6" placeholder="Paste label text here, or scan an image above…"></textarea>
+        <label class="field-label" for="raw-text">Extracted label fields (edit if needed)</label>
+        <textarea id="raw-text" rows="6" placeholder="Scanned fields appear here, or paste type code below…"></textarea>
 
         <label class="field-label" for="type-code-input">Type code (paste here if scan misses it)</label>
         <input type="text" id="type-code-input" placeholder="e.g. 27210B+1130504A or 311100-00100240" autocomplete="off" />
@@ -111,6 +111,6 @@
   <div id="toast" class="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>

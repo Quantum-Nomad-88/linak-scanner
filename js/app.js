@@ -113,14 +113,24 @@ async function runOcr(imageSource) {
   progressBar.style.width = '0%';
 
   try {
-    const text = await recognizeText(imageSource);
-    rawTextArea.value = text;
-    decodeAndShow(text);
-    if (text.trim().length < 10) {
-      showToast('Little text detected — edit the text box manually.');
+    const result = await recognizeText(imageSource);
+
+    // Show clean extracted text, not raw OCR goop
+    rawTextArea.value = result.cleanText || '';
+
+    if (result.typeCode) {
+      $('#type-code-input').value = result.typeCode;
+    }
+
+    decodeAndShow(result.cleanText || result.rawBlob);
+
+    if (result.foundCount === 0) {
+      showToast('Could not read label — paste type code manually.');
+    } else if (result.foundCount < 3) {
+      showToast(`Partial read (${result.foundCount} fields) — check and edit below.`);
     }
   } catch (err) {
-    showToast('OCR failed. Paste label text manually.');
+    showToast('OCR failed. Paste type code manually.');
     console.error(err);
   } finally {
     setLoading(false);
