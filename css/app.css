@@ -300,6 +300,10 @@ textarea:focus, input:focus {
   word-break: break-word;
 }
 
+.calc-results {
+  margin-top: 0.85rem;
+}
+
 .warnings {
   margin-top: 1rem;
   padding: 0.75rem;
@@ -381,6 +385,7 @@ textarea:focus, input:focus {
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: flex;
+  gap: 0.1rem;
   z-index: 100;
 }
 
@@ -389,10 +394,10 @@ textarea:focus, input:focus {
   background: none;
   border: none;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.45rem 0.2rem;
 }
 
 .nav-btn.active {

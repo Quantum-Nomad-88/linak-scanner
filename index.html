@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.svg" />
-  <link rel="stylesheet" href="css/app.css?v=19" />
+  <link rel="stylesheet" href="css/app.css?v=20" />
 </head>
 <body>
   <header class="header">
@@ -110,12 +110,44 @@
         <p class="hint small">Specs are read from the label text and decoded from the Type ordering code. Custom configurations may need manual verification.</p>
       </div>
     </section>
+
+    <!-- BED WEIGHT CALCULATOR -->
+    <section id="view-bed-weight" class="view hidden">
+      <div class="card">
+        <h2>Bed Weight Distribution</h2>
+        <p class="hint">Enter total test weight in kg. Split uses your spreadsheet values: Backrest 45%, Center 25%, Legrest 30%.</p>
+
+        <label class="field-label" for="bed-total-weight">Total weight (kg)</label>
+        <input type="text" id="bed-total-weight" inputmode="decimal" placeholder="e.g. 250" autocomplete="off" />
+
+        <button type="button" id="bed-calc-btn" class="btn primary full">Calculate bed distribution</button>
+
+        <div id="bed-results" class="results-grid calc-results hidden"></div>
+      </div>
+    </section>
+
+    <!-- SEAT WEIGHT CALCULATOR -->
+    <section id="view-seat-weight" class="view hidden">
+      <div class="card">
+        <h2>Seat Weight Distribution</h2>
+        <p class="hint">Enter total seated weight in kg. Split uses sheet proportions grouped into Backrest, Seat and Legrest.</p>
+
+        <label class="field-label" for="seat-total-weight">Total weight (kg)</label>
+        <input type="text" id="seat-total-weight" inputmode="decimal" placeholder="e.g. 250" autocomplete="off" />
+
+        <button type="button" id="seat-calc-btn" class="btn primary full">Calculate seat distribution</button>
+
+        <div id="seat-results" class="results-grid calc-results hidden"></div>
+      </div>
+    </section>
   </main>
 
   <nav class="bottom-nav">
     <button type="button" class="nav-btn active" data-view="scan">Scan</button>
     <button type="button" class="nav-btn" data-view="history">History</button>
     <button type="button" class="nav-btn" data-view="models">Models</button>
+    <button type="button" class="nav-btn" data-view="bed-weight">Bed Dist</button>
+    <button type="button" class="nav-btn" data-view="seat-weight">Seat Dist</button>
   </nav>
 
   <div id="loading" class="loading hidden">
@@ -163,7 +195,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=18').catch(function (err) {
+    import('./js/app.js?v=20').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

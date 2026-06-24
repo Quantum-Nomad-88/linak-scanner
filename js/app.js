@@ -467,6 +467,93 @@ function renderModels() {
     .join('');
 }
 
+// --- Weight calculators ---
+function initWeightCalculatorUi() {
+  on($('#bed-calc-btn'), 'click', calculateBedDistribution);
+  on($('#seat-calc-btn'), 'click', calculateSeatDistribution);
+
+  on($('#bed-total-weight'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateBedDistribution();
+  });
+  on($('#seat-total-weight'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateSeatDistribution();
+  });
+}
+
+function parseWeightInput(raw) {
+  const cleaned = String(raw || '').trim().replace(',', '.');
+  const value = Number(cleaned);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
+function formatKg(value) {
+  return `${value.toFixed(2)} kg`;
+}
+
+function formatPlates(valueKg) {
+  return `${(valueKg / 5).toFixed(2)} x 5kg`;
+}
+
+function renderWeightRows(targetEl, rows) {
+  if (!targetEl) return;
+  targetEl.innerHTML = '';
+  rows.forEach((row) => {
+    const item = document.createElement('div');
+    item.className = 'spec-row';
+    item.innerHTML = `
+      <span class="spec-label">${escapeHtml(row.label)}</span>
+      <span class="spec-value">${escapeHtml(formatKg(row.kg))} · ${escapeHtml(formatPlates(row.kg))}</span>
+    `;
+    targetEl.appendChild(item);
+  });
+  targetEl.classList.remove('hidden');
+}
+
+function calculateBedDistribution() {
+  const input = $('#bed-total-weight');
+  const results = $('#bed-results');
+  const totalKg = parseWeightInput(input?.value);
+
+  if (!totalKg) {
+    showToast('Enter a valid total bed weight in kg.');
+    results?.classList.add('hidden');
+    return;
+  }
+
+  const rows = [
+    { label: 'Backrest (45%)', kg: totalKg * 0.45 },
+    { label: 'Center (25%)', kg: totalKg * 0.25 },
+    { label: 'Legrest (30%)', kg: totalKg * 0.30 },
+  ];
+
+  renderWeightRows(results, rows);
+}
+
+function calculateSeatDistribution() {
+  const input = $('#seat-total-weight');
+  const results = $('#seat-results');
+  const totalKg = parseWeightInput(input?.value);
+
+  if (!totalKg) {
+    showToast('Enter a valid total seat weight in kg.');
+    results?.classList.add('hidden');
+    return;
+  }
+
+  // Grouped from spreadsheet chair distribution:
+  // Backrest = Head + Upper Torso (5% + 53.75%)
+  // Seat = Upper Leg (24.38%)
+  // Legrest = Lower Leg (16.88%)
+  const rows = [
+    { label: 'Backrest (58.75%)', kg: totalKg * 0.5875 },
+    { label: 'Seat (24.38%)', kg: totalKg * 0.2438 },
+    { label: 'Legrest (16.88%)', kg: totalKg * 0.1688 },
+  ];
+
+  renderWeightRows(results, rows);
+}
+
 // --- Helpers ---
 function setLoading(on, msg) {
   $('#loading').classList.toggle('hidden', !on);
@@ -500,6 +587,7 @@ function bootApp() {
     initOcrUi();
     initResultsUi();
     initHistoryUi();
+    initWeightCalculatorUi();
     initServiceWorker();
     showView('scan');
   } catch (err) {
