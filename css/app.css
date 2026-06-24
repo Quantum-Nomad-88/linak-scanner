@@ -596,23 +596,23 @@ select:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
   background: none;
   border: none;
   color: var(--text-tertiary);
   font-family: inherit;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
-  padding: 0.5rem 0.25rem;
+  padding: 0.45rem 0.15rem;
   position: relative;
   transition: color 0.15s;
 }
 
 .nav-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.75;
@@ -811,4 +811,203 @@ select:focus {
   .la40-component-photo {
     max-height: 160px;
   }
+}
+
+/* Bar bending */
+.bar-size-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.bar-size-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.bar-size-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.bar-size-option input {
+  accent-color: var(--accent);
+}
+
+.bar-flange-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 0.65rem;
+}
+
+.bar-flange-field .field-label {
+  margin-top: 0;
+}
+
+.bar-cut-hero {
+  text-align: center;
+  padding: 0.5rem 0 0.75rem;
+}
+
+.bar-cut-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.bar-cut-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.15;
+  margin: 0.15rem 0;
+}
+
+.bar-cut-sub {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.bar-cut-all {
+  border-top: 1px solid var(--border);
+  padding-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bar-cut-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+
+.bar-cut-row.active {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bar-backstop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bar-backstop-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.bar-backstop-fold {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.bar-backstop-flange {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.1rem;
+}
+
+.bar-backstop-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bar-backstop-value span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.bar-bend-diagram {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.bend-diagram-svg {
+  display: block;
+}
+
+.bend-diagram-bent {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+
+.bend-bar-segment {
+  fill: #8b939e;
+  stroke: #5c6570;
+  stroke-width: 1;
+}
+
+.bend-fold-line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.bend-fold-label,
+.bend-dim-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.bend-fold-label {
+  fill: var(--accent);
+  font-size: 10px;
+}
+
+.bend-total-line {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  marker-start: url(#none);
+}
+
+.bend-total-label,
+.bend-diagram-title {
+  fill: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.bend-profile-path {
+  fill: none;
+  stroke: #5c6570;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

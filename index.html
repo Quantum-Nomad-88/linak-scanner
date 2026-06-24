@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=24" />
+  <link rel="stylesheet" href="css/app.css?v=25" />
 </head>
 <body>
   <header class="header">
@@ -21,7 +21,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <div>
         <h1>LINAK Actuator Toolkit</h1>
-        <p class="subtitle">Label scanner · LA40 mods · test weights</p>
+        <p class="subtitle">Label scanner · LA40 mods · bar bending · test weights</p>
       </div>
     </div>
   </header>
@@ -138,6 +138,58 @@
       <div id="la40-components" class="la40-components hidden"></div>
     </section>
 
+    <!-- BAR BENDING -->
+    <section id="view-bar-bend" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>Bar bending</h2>
+          <p class="card-desc">Press brake calculator — cut length and backstop settings for 3 mm radius + 50 mm V.</p>
+        </div>
+
+        <label class="field-label">Bar size</label>
+        <div class="bar-size-row" role="radiogroup" aria-label="Bar size">
+          <label class="bar-size-option"><input type="radio" name="bar-size" value="10" checked /> 10 mm</label>
+          <label class="bar-size-option"><input type="radio" name="bar-size" value="8" /> 8 mm</label>
+          <label class="bar-size-option"><input type="radio" name="bar-size" value="4" /> 4 mm</label>
+        </div>
+
+        <label class="field-label" for="bar-num-folds">Number of folds</label>
+        <input type="text" id="bar-num-folds" inputmode="numeric" value="2" autocomplete="off" />
+
+        <label class="field-label">Flange lengths (mm)</label>
+        <div id="bar-flange-inputs" class="bar-flange-grid"></div>
+
+        <button type="button" id="bar-bend-calc-btn" class="btn primary full">Calculate</button>
+      </div>
+
+      <div id="bar-bend-results" class="hidden">
+        <div class="card">
+          <div class="bar-cut-hero">
+            <span class="bar-cut-label">Cut length</span>
+            <span id="bar-cut-primary" class="bar-cut-value">—</span>
+            <span id="bar-cut-bar-label" class="bar-cut-sub">10 mm bar</span>
+          </div>
+          <div id="bar-cut-all" class="bar-cut-all"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Backstop positions</h2>
+            <p class="card-desc" id="bar-backstop-desc">Set the backstop for each fold on the press brake.</p>
+          </div>
+          <div id="bar-backstop-list" class="bar-backstop-list"></div>
+        </div>
+
+        <div class="card bar-diagram-card">
+          <div class="card-head">
+            <h2>Diagram</h2>
+            <p class="card-desc">Flat pattern and bent profile update as you change dimensions.</p>
+          </div>
+          <div id="bar-bend-diagram" class="bar-bend-diagram"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- WEIGHT DISTRIBUTION -->
     <section id="view-weights" class="view hidden">
       <div class="card">
@@ -177,6 +229,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg>
       <span>LA40</span>
     </button>
+    <button type="button" class="nav-btn" data-view="bar-bend">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V8"/><path d="M12 20V12"/><path d="M16 16V10"/></svg>
+      <span>Bend</span>
+    </button>
     <button type="button" class="nav-btn" data-view="weights">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9v12h16V9Z"/><path d="M9 21v-6h6v6"/></svg>
       <span>Weights</span>
@@ -198,7 +254,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v14';
+      var SW_KEY = 'linak-sw-reset-v15';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -228,7 +284,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=24').catch(function (err) {
+    import('./js/app.js?v=25').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

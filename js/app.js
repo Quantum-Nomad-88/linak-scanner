@@ -9,6 +9,8 @@ import { buildDecodeHints } from './decoders/motor-catalog.js';
 import { recognizeCapture } from './ocr.js';
 import { drawMaskOverlay, getMaskForMode } from './scan-frame.js';
 import { calcLa40Modifications, LA40_COMPONENTS } from './la40-modifications.js';
+import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
+import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -469,6 +471,103 @@ function renderLa40Modifications(result) {
   }
 }
 
+// --- Bar bending ---
+const BAR_FLANGE_DEFAULTS = [80, 200, 30, 0, 0, 0, 0];
+
+function initBarBendingUi() {
+  const grid = $('#bar-flange-inputs');
+  if (!grid) return;
+
+  grid.innerHTML = BAR_FLANGE_DEFAULTS.map((val, i) => `
+    <div class="bar-flange-field">
+      <label class="field-label" for="bar-flange-${i + 1}">Flange ${i + 1}</label>
+      <input type="text" id="bar-flange-${i + 1}" class="bar-flange-input" inputmode="decimal" value="${val || ''}" placeholder="0" autocomplete="off" />
+    </div>
+  `).join('');
+
+  on($('#bar-bend-calc-btn'), 'click', calculateBarBending);
+  on($('#bar-num-folds'), 'input', calculateBarBending);
+
+  $$('.bar-flange-input').forEach((el) => on(el, 'input', calculateBarBending));
+  $$('input[name="bar-size"]').forEach((el) => on(el, 'change', calculateBarBending));
+
+  calculateBarBending();
+}
+
+function readBarBendingInputs() {
+  const flanges = [];
+  for (let i = 1; i <= 7; i += 1) {
+    const val = parseBarNumber($(`#bar-flange-${i}`)?.value);
+    flanges.push(val ?? 0);
+  }
+
+  const numFolds = parseBarNumber($('#bar-num-folds')?.value);
+  const barSize = document.querySelector('input[name="bar-size"]:checked')?.value || '10';
+
+  return { flanges, numFolds, barSize: Number(barSize) };
+}
+
+function calculateBarBending() {
+  const { flanges, numFolds, barSize } = readBarBendingInputs();
+
+  if (!numFolds || numFolds < 1) {
+    showToast('Enter a valid number of folds.');
+    $('#bar-bend-results')?.classList.add('hidden');
+    return;
+  }
+
+  if (!flanges.some((f) => f > 0)) {
+    showToast('Enter at least one flange length.');
+    $('#bar-bend-results')?.classList.add('hidden');
+    return;
+  }
+
+  const result = calcBarBending(flanges, numFolds, barSize);
+  renderBarBendingResults(result);
+}
+
+function renderBarBendingResults(result) {
+  const wrap = $('#bar-bend-results');
+  const cutPrimary = $('#bar-cut-primary');
+  const cutBarLabel = $('#bar-cut-bar-label');
+  const cutAll = $('#bar-cut-all');
+  const backstopList = $('#bar-backstop-list');
+  const diagram = $('#bar-bend-diagram');
+
+  if (cutPrimary) cutPrimary.textContent = `${result.cutLength} mm`;
+  if (cutBarLabel) cutBarLabel.textContent = result.bar.label;
+
+  if (cutAll) {
+    cutAll.innerHTML = Object.entries(BAR_SIZES).map(([key, cfg]) => `
+      <div class="bar-cut-row${String(key) === String(result.barSizeKey) ? ' active' : ''}">
+        <span>${escapeHtml(cfg.label)}</span>
+        <span>${escapeHtml(String(result.cutByBar[key]))} mm</span>
+      </div>
+    `).join('');
+  }
+
+  if (backstopList) {
+    const rows = result.activeBackstops.filter((row) => row.flangeMm > 0 || row.fold <= result.numFolds);
+    backstopList.innerHTML = rows.map((row) => `
+      <div class="bar-backstop-row">
+        <div>
+          <div class="bar-backstop-fold">Fold ${row.fold}</div>
+          <div class="bar-backstop-flange">Flange ${fmtBar(row.flangeMm)} mm</div>
+        </div>
+        <div class="bar-backstop-value">${fmtBar(row.backstopMm)} <span>mm</span></div>
+      </div>
+    `).join('');
+  }
+
+  renderBarBendingDiagram(diagram, result);
+  wrap?.classList.remove('hidden');
+}
+
+function fmtBar(n) {
+  const rounded = Math.round(n * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
+}
+
 // --- Weight calculators ---
 function initWeightCalculatorUi() {
   on($('#bed-calc-btn'), 'click', calculateBedDistribution);
@@ -587,6 +686,7 @@ function bootApp() {
     initOcrUi();
     initResultsUi();
     initLa40ModsUi();
+    initBarBendingUi();
     initWeightCalculatorUi();
     initServiceWorker();
     showView('scan');
