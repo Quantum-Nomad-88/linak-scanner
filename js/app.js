@@ -14,6 +14,7 @@ import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+const $$array = (sel) => Array.from($$(sel));
 
 function on(el, event, handler) {
   if (el) el.addEventListener(event, handler);
@@ -481,20 +482,22 @@ function initBarBendingUi() {
   renderBarFlangeInputs();
   updateBarFoldBadge();
 
-  on($('#bar-add-flange-btn'), 'click', () => {
+  on($('#bar-add-flange-btn'), 'click', (e) => {
+    e.preventDefault();
     if (barFlangeCount >= 7) return;
+    const values = collectBarFlangeValues();
     barFlangeCount += 1;
-    renderBarFlangeInputs(collectBarFlangeValues());
+    renderBarFlangeInputs(values);
     updateBarFoldBadge();
     calculateBarBending();
-    list.lastElementChild?.querySelector('.bar-flange-input')?.focus();
+    $('#bar-flange-list')?.lastElementChild?.querySelector('.bar-flange-input')?.focus();
   });
 
   $$('input[name="bar-size"]').forEach((el) => on(el, 'change', calculateBarBending));
 }
 
 function collectBarFlangeValues() {
-  return $$('.bar-flange-input').map((el) => el.value);
+  return $$array('.bar-flange-input').map((el) => el.value);
 }
 
 function renderBarFlangeInputs(previousValues = []) {

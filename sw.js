@@ -1,4 +1,4 @@
-const CACHE = 'linak-specs-v16-static';
+const CACHE = 'linak-specs-v17-static';
 const STATIC = [
   './icons/icon-192.svg',
   './icons/icon-512.svg',
