@@ -256,7 +256,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v17';
+      var SW_KEY = 'linak-sw-reset-v18';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -286,7 +286,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=27').catch(function (err) {
+    import('./js/app.js?v=28').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

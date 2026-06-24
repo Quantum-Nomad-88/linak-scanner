@@ -22,6 +22,7 @@ function on(el, event, handler) {
 
 let currentSpecs = null;
 let currentImageDataUrl = null;
+let lastBarBendingResult = null;
 
 // --- Navigation ---
 function initNavigation() {
@@ -36,6 +37,11 @@ function initNavigation() {
 
 function showView(name) {
   $$('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
+  if (name === 'bar-bend' && lastBarBendingResult) {
+    requestAnimationFrame(() => {
+      renderBarBendingDiagram($('#bar-bend-diagram'), lastBarBendingResult);
+    });
+  }
 }
 
 // --- Camera / file ---
@@ -494,6 +500,12 @@ function initBarBendingUi() {
   });
 
   $$('input[name="bar-size"]').forEach((el) => on(el, 'change', calculateBarBending));
+
+  window.addEventListener('resize', () => {
+    if (!$('#view-bar-bend')?.classList.contains('hidden') && lastBarBendingResult) {
+      renderBarBendingDiagram($('#bar-bend-diagram'), lastBarBendingResult);
+    }
+  });
 }
 
 function collectBarFlangeValues() {
@@ -573,11 +585,13 @@ function calculateBarBending() {
   const hasValue = flanges.some((f) => f > 0);
 
   if (!hasValue) {
+    lastBarBendingResult = null;
     $('#bar-bend-results')?.classList.add('hidden');
     return;
   }
 
   const result = calcBarBending(flanges, barSize);
+  lastBarBendingResult = result;
   renderBarBendingResults(result);
 }
 
@@ -617,8 +631,10 @@ function renderBarBendingResults(result) {
     }
   }
 
-  renderBarBendingDiagram(diagram, result);
   wrap?.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    renderBarBendingDiagram(diagram, result);
+  });
 }
 
 function fmtBar(n) {
