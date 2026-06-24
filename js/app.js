@@ -434,7 +434,6 @@ function calculateLa40Modifications() {
     showToast('Enter valid install and stroke values in mm.');
     $('#la40-mods-summary')?.classList.add('hidden');
     $('#la40-components')?.classList.add('hidden');
-    $('#la40-jig-card')?.classList.add('hidden');
     return;
   }
 
@@ -445,28 +444,20 @@ function calculateLa40Modifications() {
 function renderLa40Modifications(result) {
   const summary = $('#la40-mods-summary');
   const fullyExtended = $('#la40-fully-extended');
-  const threadedStd = $('#la40-threaded-std');
-  const threadedMin = $('#la40-threaded-min');
   const componentsEl = $('#la40-components');
-  const jigCard = $('#la40-jig-card');
-  const jigGrid = $('#la40-jig-grid');
 
   if (fullyExtended) fullyExtended.textContent = `${result.fullyExtendedMm} mm`;
-  if (threadedStd) threadedStd.textContent = `${result.threadedRodStdMm} mm`;
-  if (threadedMin) threadedMin.textContent = `${result.threadedRodMinMm} mm`;
   summary?.classList.remove('hidden');
 
   if (componentsEl) {
     componentsEl.innerHTML = LA40_COMPONENTS.map((comp) => {
       const length = result[comp.lengthKey];
-      const formula = result.formulas[comp.formulaKey];
       return `
         <article class="card la40-component-card">
           <div class="la40-component-layout">
             <div class="la40-component-info">
               <h3>${escapeHtml(comp.name)}</h3>
               <p class="la40-component-length">${escapeHtml(String(length))} <span>mm</span></p>
-              <p class="la40-component-formula">${escapeHtml(formula)}</p>
               <p class="la40-component-note">${escapeHtml(comp.note)}</p>
             </div>
             <img class="la40-component-photo" src="${comp.image}" alt="${escapeHtml(comp.name)}" loading="lazy" />
@@ -475,22 +466,6 @@ function renderLa40Modifications(result) {
       `;
     }).join('');
     componentsEl.classList.remove('hidden');
-  }
-
-  if (jigGrid) {
-    const jigRows = [
-      ['OG', result.jigPositions.og],
-      ['Outer tube', result.jigPositions.outer],
-      ['Threaded rod', result.jigPositions.threadedRod],
-      ['Limit switch', result.jigPositions.limitSwitch],
-    ];
-    jigGrid.innerHTML = jigRows.map(([label, value]) => `
-      <div class="spec-row">
-        <span class="spec-label">${escapeHtml(label)}</span>
-        <span class="spec-value">${escapeHtml(String(value))} mm</span>
-      </div>
-    `).join('');
-    jigCard?.classList.remove('hidden');
   }
 }
 

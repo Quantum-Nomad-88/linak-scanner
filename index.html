@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=23" />
+  <link rel="stylesheet" href="css/app.css?v=24" />
 </head>
 <body>
   <header class="header">
@@ -112,7 +112,7 @@
       <div class="card la40-calc-card">
         <div class="card-head">
           <h2>LA40 modifications</h2>
-          <p class="card-desc">Enter install and stroke — component cut lengths match the LA-40 Calc spreadsheet.</p>
+          <p class="card-desc">Enter install and stroke to get the cut length for each LA40 component.</p>
         </div>
 
         <div class="la40-input-grid">
@@ -128,30 +128,14 @@
         <button type="button" id="la40-mods-calc-btn" class="btn primary full">Calculate components</button>
 
         <div id="la40-mods-summary" class="la40-summary hidden">
-          <div class="la40-summary-item">
+          <div class="la40-summary-item la40-summary-item-wide">
             <span class="la40-summary-label">Fully extended</span>
             <span id="la40-fully-extended" class="la40-summary-value">—</span>
-          </div>
-          <div class="la40-summary-item">
-            <span class="la40-summary-label">Threaded rod (std)</span>
-            <span id="la40-threaded-std" class="la40-summary-value">—</span>
-          </div>
-          <div class="la40-summary-item">
-            <span class="la40-summary-label">Threaded rod (min)</span>
-            <span id="la40-threaded-min" class="la40-summary-value">—</span>
           </div>
         </div>
       </div>
 
       <div id="la40-components" class="la40-components hidden"></div>
-
-      <div id="la40-jig-card" class="card la40-jig-card hidden">
-        <div class="card-head">
-          <h2>Jig positions</h2>
-          <p class="card-desc">Set-point distances from install datum (380 mm reference).</p>
-        </div>
-        <div id="la40-jig-grid" class="results-grid"></div>
-      </div>
     </section>
 
     <!-- WEIGHT DISTRIBUTION -->
@@ -214,7 +198,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v13';
+      var SW_KEY = 'linak-sw-reset-v14';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -244,7 +228,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=23').catch(function (err) {
+    import('./js/app.js?v=24').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
