@@ -1,11 +1,11 @@
 {
-  "name": "LINAK Motor Specs",
-  "short_name": "LINAK Specs",
-  "description": "Scan LINAK actuator labels to read motor specifications",
+  "name": "LINAK Actuator Toolkit",
+  "short_name": "LINAK Toolkit",
+  "description": "Scan LINAK actuator labels and calculate bed and seat test weight distribution",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f1419",
-  "theme_color": "#0066b3",
+  "background_color": "#f4f5f7",
+  "theme_color": "#1c1c1e",
   "orientation": "portrait",
   "icons": [
     {

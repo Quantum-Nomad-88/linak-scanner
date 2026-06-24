@@ -3,20 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0066b3" />
+  <meta name="theme-color" content="#1c1c1e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>LINAK Motor Specs</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>LINAK Actuator Toolkit</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.svg" />
-  <link rel="stylesheet" href="css/app.css?v=20" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css?v=22" />
 </head>
 <body>
   <header class="header">
-    <div class="header-inner">
-      <h1>LINAK Motor Specs</h1>
-      <p class="subtitle">Scan actuator labels · decode motor specs</p>
+    <div class="header-brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>LINAK Actuator Toolkit</h1>
+        <p class="subtitle">Label scanner · bed &amp; seat weight distribution</p>
+      </div>
     </div>
   </header>
 
@@ -24,23 +30,32 @@
     <!-- SCAN -->
     <section id="view-scan" class="view">
       <div class="card">
-        <h2>Scan label</h2>
+        <div class="card-head">
+          <h2>Label scanner</h2>
+          <p class="card-desc">Capture or paste a type code to decode actuator specifications.</p>
+        </div>
 
         <fieldset class="scan-mode">
-          <legend>Scan mode</legend>
+          <legend>Capture mode</legend>
           <label class="scan-mode-option">
             <input type="radio" name="scan-mode" value="type" checked />
-            <span><strong>Type code only</strong> — line up the code in the box (recommended)</span>
+            <span><strong>Type code</strong> — align the ordering code in the guide box</span>
           </label>
           <label class="scan-mode-option">
             <input type="radio" name="scan-mode" value="full" />
-            <span><strong>Full label</strong> — best for upside-down or whole sticker photos</span>
+            <span><strong>Full label</strong> — reads all printed fields</span>
           </label>
         </fieldset>
 
         <div class="btn-row">
-          <button type="button" id="camera-btn" class="btn primary">📷 Camera</button>
-          <button type="button" id="gallery-btn" class="btn">🖼 Gallery</button>
+          <button type="button" id="camera-btn" class="btn primary">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5 7.8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.8L14.5 4.5h-5Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Camera
+          </button>
+          <button type="button" id="gallery-btn" class="btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg>
+            Gallery
+          </button>
           <input type="file" id="file-input" accept="image/*" hidden />
         </div>
 
@@ -48,7 +63,7 @@
           <video id="camera-video" class="camera-source" playsinline autoplay muted></video>
           <canvas id="camera-preview" class="camera-preview" aria-label="Camera preview with scan guide"></canvas>
         </div>
-        <p id="scan-frame-hint" class="scan-frame-hint-bar hidden">Align the Type code in the box</p>
+        <p id="scan-frame-hint" class="scan-frame-hint-bar hidden">Align the type code in the guide box</p>
         <canvas id="capture-canvas" class="hidden"></canvas>
 
         <div class="btn-row">
@@ -62,18 +77,18 @@
 
         <img id="preview-img" class="preview hidden" alt="Scanned label" />
 
-        <label class="field-label" for="raw-text">Extracted label fields (edit if needed)</label>
-        <textarea id="raw-text" rows="6" placeholder="Scanned fields appear here, or paste type code below…"></textarea>
+        <label class="field-label" for="raw-text">Extracted fields</label>
+        <textarea id="raw-text" rows="5" placeholder="Scanned text appears here…"></textarea>
 
-        <label class="field-label" for="type-code-input">Type code (paste here if scan misses it)</label>
-        <input type="text" id="type-code-input" placeholder="e.g. 27210B+1130504A or 311100-00100240" autocomplete="off" />
+        <label class="field-label" for="type-code-input">Type code</label>
+        <input type="text" id="type-code-input" placeholder="e.g. 40210B+1130504A" autocomplete="off" />
 
-        <button type="button" id="decode-btn" class="btn primary full">Decode specs</button>
+        <button type="button" id="decode-btn" class="btn primary full">Decode specifications</button>
       </div>
 
       <div id="results-section" class="card hidden">
         <div class="results-header">
-          <h2>Motor specs</h2>
+          <h2>Decoded specifications</h2>
           <span id="confidence" class="confidence">—</span>
         </div>
         <div id="results-grid" class="results-grid"></div>
@@ -83,71 +98,54 @@
           <ul id="warnings"></ul>
         </div>
 
-        <div class="btn-row">
-          <button type="button" id="save-btn" class="btn">💾 Save</button>
-          <button type="button" id="share-btn" class="btn">↗ Share</button>
+        <div class="btn-row results-actions">
+          <button type="button" id="share-btn" class="btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><path d="m8 7 4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            Share
+          </button>
         </div>
       </div>
     </section>
 
-    <!-- HISTORY -->
-    <section id="view-history" class="view hidden">
+    <!-- WEIGHT DISTRIBUTION -->
+    <section id="view-weights" class="view hidden">
       <div class="card">
-        <div class="results-header">
-          <h2>History</h2>
-          <button type="button" id="clear-history-btn" class="btn small">Clear</button>
+        <div class="card-head">
+          <h2>Bed weight distribution</h2>
+          <p class="card-desc">Split total test weight across backrest, centre, and legrest zones.</p>
         </div>
-        <div id="history-list" class="history-list"></div>
-      </div>
-    </section>
-
-    <!-- MODELS -->
-    <section id="view-models" class="view hidden">
-      <div class="card">
-        <h2>Supported actuators</h2>
-        <p class="hint">Common LINAK families with type-code decoders:</p>
-        <ul id="models-list" class="models-list"></ul>
-        <p class="hint small">Specs are read from the label text and decoded from the Type ordering code. Custom configurations may need manual verification.</p>
-      </div>
-    </section>
-
-    <!-- BED WEIGHT CALCULATOR -->
-    <section id="view-bed-weight" class="view hidden">
-      <div class="card">
-        <h2>Bed Weight Distribution</h2>
-        <p class="hint">Enter total test weight in kg. Split uses your spreadsheet values: Backrest 45%, Center 25%, Legrest 30%.</p>
 
         <label class="field-label" for="bed-total-weight">Total weight (kg)</label>
         <input type="text" id="bed-total-weight" inputmode="decimal" placeholder="e.g. 250" autocomplete="off" />
-
         <button type="button" id="bed-calc-btn" class="btn primary full">Calculate bed distribution</button>
 
-        <div id="bed-results" class="results-grid calc-results hidden"></div>
+        <div id="bed-results" class="weight-results hidden"></div>
       </div>
-    </section>
 
-    <!-- SEAT WEIGHT CALCULATOR -->
-    <section id="view-seat-weight" class="view hidden">
       <div class="card">
-        <h2>Seat Weight Distribution</h2>
-        <p class="hint">Enter total seated weight in kg. Split uses sheet proportions grouped into Backrest, Seat and Legrest.</p>
+        <div class="card-head">
+          <h2>Seat weight distribution</h2>
+          <p class="card-desc">Split seated test weight across backrest, seat, and legrest zones.</p>
+        </div>
 
         <label class="field-label" for="seat-total-weight">Total weight (kg)</label>
         <input type="text" id="seat-total-weight" inputmode="decimal" placeholder="e.g. 250" autocomplete="off" />
-
         <button type="button" id="seat-calc-btn" class="btn primary full">Calculate seat distribution</button>
 
-        <div id="seat-results" class="results-grid calc-results hidden"></div>
+        <div id="seat-results" class="weight-results hidden"></div>
       </div>
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <button type="button" class="nav-btn active" data-view="scan">Scan</button>
-    <button type="button" class="nav-btn" data-view="history">History</button>
-    <button type="button" class="nav-btn" data-view="models">Models</button>
-    <button type="button" class="nav-btn" data-view="bed-weight">Bed Dist</button>
-    <button type="button" class="nav-btn" data-view="seat-weight">Seat Dist</button>
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button type="button" class="nav-btn active" data-view="scan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a2 2 0 0 1 2-2h3"/><path d="M20 7V5a2 2 0 0 0-2-2h-3"/><path d="M4 17v2a2 2 0 0 0 2 2h3"/><path d="M20 17v2a2 2 0 0 1-2 2h-3"/><rect x="7" y="9" width="10" height="6" rx="1"/></svg>
+      <span>Scan</span>
+    </button>
+    <button type="button" class="nav-btn" data-view="weights">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9v12h16V9Z"/><path d="M9 21v-6h6v6"/></svg>
+      <span>Weights</span>
+    </button>
   </nav>
 
   <div id="loading" class="loading hidden">
@@ -165,7 +163,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v10';
+      var SW_KEY = 'linak-sw-reset-v12';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -195,7 +193,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=20').catch(function (err) {
+    import('./js/app.js?v=22').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

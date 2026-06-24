@@ -1,15 +1,13 @@
-import { decodeMotorSpecs, decodeByTypeCode, getAllSupportedModels } from './decoders/engine.js';
+import { decodeMotorSpecs, decodeByTypeCode } from './decoders/engine.js';
 import {
   extractTypeCode,
   isValidTypeCode,
   normalizeLabelInput,
   repairOcrTypeCode,
-  sanitizeTypeCode,
 } from './decoders/type-code.js';
 import { buildDecodeHints } from './decoders/motor-catalog.js';
 import { recognizeCapture } from './ocr.js';
 import { drawMaskOverlay, getMaskForMode } from './scan-frame.js';
-import { addToHistory, getHistory, getHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -34,8 +32,6 @@ function initNavigation() {
 
 function showView(name) {
   $$('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
-  if (name === 'history') renderHistory();
-  if (name === 'models') renderModels();
 }
 
 // --- Camera / file ---
@@ -90,7 +86,7 @@ async function startCamera() {
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      showToast('Camera not supported here. Use Gallery instead.');
+      showToast('Camera not supported. Use Gallery instead.');
       return;
     }
 
@@ -110,7 +106,6 @@ async function startCamera() {
     video.muted = true;
     video.srcObject = stream;
 
-    // Show camera area before play() so layout has size (required on iOS)
     cameraWrap.classList.remove('hidden');
     applyScanFrameUi();
     captureBtn.classList.remove('hidden');
@@ -133,7 +128,7 @@ async function startCamera() {
   } catch (err) {
     console.error('Camera error:', err);
     showToast(err?.name === 'NotAllowedError'
-      ? 'Camera permission denied — allow camera in browser settings.'
+      ? 'Camera permission denied.'
       : 'Camera failed — try Gallery instead.');
     stopCamera();
   }
@@ -232,7 +227,7 @@ async function runOcrOnCapture(sourceCanvas) {
     } else if (mode === 'full' && result.foundCount < 3 && !result.typeCode) {
       showToast(`Partial read (${result.foundCount} fields) — check and edit below.`);
     } else if (result.typeCode) {
-      showToast('Label read — specs decoded.');
+      showToast('Label read — specifications decoded.');
     }
   } catch (err) {
     showToast('OCR failed. Paste type code manually.');
@@ -275,7 +270,6 @@ function decodeAndShow(text) {
   const hints = buildDecodeHints(bodyText);
   const typeOverride = repairOcrTypeCode($('#type-code-input').value, hints);
 
-  // Direct type-code decode is most reliable (paste field or bare code)
   const codeFromField = typeOverride && isValidCode(typeOverride) ? typeOverride : null;
   const codeFromBody = extractTypeCode(bodyText, hints);
   const directCode = codeFromField || codeFromBody;
@@ -359,7 +353,7 @@ function renderResults(specs) {
   }
 
   if (shown === 0) {
-    grid.innerHTML = '<p class="empty">No specs decoded. Paste type code e.g. <strong>27210B+1130504A</strong> in the field below.</p>';
+    grid.innerHTML = '<p class="empty">No specifications decoded. Paste a type code in the field above.</p>';
   }
 
   const conf = $('#confidence');
@@ -384,17 +378,11 @@ function renderResults(specs) {
 }
 
 function initResultsUi() {
-  on($('#save-btn'), 'click', () => {
-    if (!currentSpecs) return;
-    addToHistory(currentSpecs);
-    showToast('Saved to history');
-  });
-
   on($('#share-btn'), 'click', async () => {
     if (!currentSpecs) return;
     const text = formatSpecsText(currentSpecs);
     try {
-      await navigator.share({ title: 'LINAK Motor Specs', text });
+      await navigator.share({ title: 'LINAK Actuator Specs', text });
     } catch {
       await navigator.clipboard.writeText(text);
       showToast('Copied to clipboard');
@@ -404,7 +392,7 @@ function initResultsUi() {
 
 function formatSpecsText(s) {
   const lines = [
-    `LINAK ${s.model || 'Actuator'} Specs`,
+    `LINAK ${s.model || 'Actuator'} Specifications`,
     s.typeCode ? `Type: ${s.typeCode}` : null,
     s.strokeMm != null ? `Stroke: ${s.strokeMm} mm` : null,
     s.installLengthMm != null ? `Install length: ${s.installLengthMm} mm` : null,
@@ -416,55 +404,6 @@ function formatSpecsText(s) {
     s.workOrder ? `W/O: ${s.workOrder}` : null,
   ].filter(Boolean);
   return lines.join('\n');
-}
-
-// --- History ---
-function renderHistory() {
-  const list = $('#history-list');
-  const items = getHistory();
-  list.innerHTML = '';
-
-  if (!items.length) {
-    list.innerHTML = '<p class="empty">No scans saved yet.</p>';
-    return;
-  }
-
-  items.forEach((entry) => {
-    const el = document.createElement('button');
-    el.className = 'history-item';
-    el.type = 'button';
-    const date = new Date(entry.timestamp).toLocaleString();
-    el.innerHTML = `
-      <strong>${escapeHtml(entry.model)}</strong>
-      <span>${escapeHtml(entry.typeCode || 'No type code')}</span>
-      <span class="meta">${date}${entry.strokeMm ? ` · ${entry.strokeMm} mm` : ''}</span>
-    `;
-    el.addEventListener('click', () => {
-      currentSpecs = entry.specs;
-      renderResults(entry.specs);
-      rawTextArea.value = entry.specs._parsed?.rawText || '';
-      showView('scan');
-      $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === 'scan'));
-    });
-    list.appendChild(el);
-  });
-}
-
-function initHistoryUi() {
-  on($('#clear-history-btn'), 'click', () => {
-    if (confirm('Clear all saved scans?')) {
-      clearHistory();
-      renderHistory();
-    }
-  });
-}
-
-// --- Models list ---
-function renderModels() {
-  const list = $('#models-list');
-  list.innerHTML = getAllSupportedModels()
-    .map((m) => `<li>${m}</li>`)
-    .join('');
 }
 
 // --- Weight calculators ---
@@ -492,20 +431,26 @@ function formatKg(value) {
 }
 
 function formatPlates(valueKg) {
-  return `${(valueKg / 5).toFixed(2)} x 5kg`;
+  return `${(valueKg / 5).toFixed(2)} × 5 kg plates`;
 }
 
-function renderWeightRows(targetEl, rows) {
+function renderWeightCards(targetEl, rows) {
   if (!targetEl) return;
   targetEl.innerHTML = '';
   rows.forEach((row) => {
-    const item = document.createElement('div');
-    item.className = 'spec-row';
-    item.innerHTML = `
-      <span class="spec-label">${escapeHtml(row.label)}</span>
-      <span class="spec-value">${escapeHtml(formatKg(row.kg))} · ${escapeHtml(formatPlates(row.kg))}</span>
+    const card = document.createElement('div');
+    card.className = 'weight-card';
+    card.innerHTML = `
+      <div>
+        <div class="weight-card-label">${escapeHtml(row.label)}</div>
+        <div class="weight-card-pct">${escapeHtml(row.pct)}</div>
+      </div>
+      <div class="weight-card-values">
+        <div class="weight-card-kg">${escapeHtml(formatKg(row.kg))}</div>
+        <div class="weight-card-plates">${escapeHtml(formatPlates(row.kg))}</div>
+      </div>
     `;
-    targetEl.appendChild(item);
+    targetEl.appendChild(card);
   });
   targetEl.classList.remove('hidden');
 }
@@ -521,13 +466,11 @@ function calculateBedDistribution() {
     return;
   }
 
-  const rows = [
-    { label: 'Backrest (45%)', kg: totalKg * 0.45 },
-    { label: 'Center (25%)', kg: totalKg * 0.25 },
-    { label: 'Legrest (30%)', kg: totalKg * 0.30 },
-  ];
-
-  renderWeightRows(results, rows);
+  renderWeightCards(results, [
+    { label: 'Backrest', pct: '45%', kg: totalKg * 0.45 },
+    { label: 'Centre', pct: '25%', kg: totalKg * 0.25 },
+    { label: 'Legrest', pct: '30%', kg: totalKg * 0.30 },
+  ]);
 }
 
 function calculateSeatDistribution() {
@@ -541,17 +484,11 @@ function calculateSeatDistribution() {
     return;
   }
 
-  // Grouped from spreadsheet chair distribution:
-  // Backrest = Head + Upper Torso (5% + 53.75%)
-  // Seat = Upper Leg (24.38%)
-  // Legrest = Lower Leg (16.88%)
-  const rows = [
-    { label: 'Backrest (58.75%)', kg: totalKg * 0.5875 },
-    { label: 'Seat (24.38%)', kg: totalKg * 0.2438 },
-    { label: 'Legrest (16.88%)', kg: totalKg * 0.1688 },
-  ];
-
-  renderWeightRows(results, rows);
+  renderWeightCards(results, [
+    { label: 'Backrest', pct: '58.75%', kg: totalKg * 0.5875 },
+    { label: 'Seat', pct: '24.38%', kg: totalKg * 0.2438 },
+    { label: 'Legrest', pct: '16.88%', kg: totalKg * 0.1688 },
+  ]);
 }
 
 // --- Helpers ---
@@ -586,7 +523,6 @@ function bootApp() {
     initCameraUi();
     initOcrUi();
     initResultsUi();
-    initHistoryUi();
     initWeightCalculatorUi();
     initServiceWorker();
     showView('scan');

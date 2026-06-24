@@ -9,7 +9,7 @@ export const TYPE_CODE_MASK = {
   y: 0.275,
   w: 0.92,
   h: 0.065,
-  label: 'Line up the Type code row in the box',
+  label: 'Align the type code in the guide box',
 };
 
 /** Full sticker area for all label fields */
@@ -54,7 +54,7 @@ export function drawMaskOverlay(ctx, width, height, mask) {
   ctx.fillRect(r.x + r.w, r.y, width - r.x - r.w, r.h);
 
   const line = Math.max(3, Math.round(width * 0.004));
-  ctx.strokeStyle = '#0088ee';
+  ctx.strokeStyle = '#c8102e';
   ctx.lineWidth = line;
   ctx.strokeRect(r.x + line / 2, r.y + line / 2, r.w - line, r.h - line);
 
