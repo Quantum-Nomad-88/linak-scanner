@@ -845,10 +845,67 @@ select:focus {
   accent-color: var(--accent);
 }
 
-.bar-flange-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem 0.65rem;
+.bar-flange-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bar-flange-header .field-label {
+  margin: 0;
+}
+
+.bar-fold-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.bar-flange-hint {
+  margin-top: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.bar-flange-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bar-flange-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.bar-flange-row .bar-flange-field {
+  flex: 1;
+}
+
+.bar-flange-remove {
+  flex: none;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-bottom: 0.05rem;
+}
+
+.bar-add-flange-btn {
+  margin-top: 0.65rem;
+}
+
+.bar-add-flange-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .bar-flange-field .field-label {

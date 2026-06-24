@@ -472,57 +472,109 @@ function renderLa40Modifications(result) {
 }
 
 // --- Bar bending ---
-const BAR_FLANGE_DEFAULTS = [80, 200, 30, 0, 0, 0, 0];
+let barFlangeCount = 1;
 
 function initBarBendingUi() {
-  const grid = $('#bar-flange-inputs');
-  if (!grid) return;
+  const list = $('#bar-flange-list');
+  if (!list) return;
 
-  grid.innerHTML = BAR_FLANGE_DEFAULTS.map((val, i) => `
-    <div class="bar-flange-field">
+  renderBarFlangeInputs();
+  updateBarFoldBadge();
+
+  on($('#bar-add-flange-btn'), 'click', () => {
+    if (barFlangeCount >= 7) return;
+    barFlangeCount += 1;
+    renderBarFlangeInputs(collectBarFlangeValues());
+    updateBarFoldBadge();
+    calculateBarBending();
+    list.lastElementChild?.querySelector('.bar-flange-input')?.focus();
+  });
+
+  $$('input[name="bar-size"]').forEach((el) => on(el, 'change', calculateBarBending));
+}
+
+function collectBarFlangeValues() {
+  return $$('.bar-flange-input').map((el) => el.value);
+}
+
+function renderBarFlangeInputs(previousValues = []) {
+  const list = $('#bar-flange-list');
+  if (!list) return;
+
+  list.innerHTML = '';
+
+  for (let i = 0; i < barFlangeCount; i += 1) {
+    const row = document.createElement('div');
+    row.className = 'bar-flange-row';
+
+    const field = document.createElement('div');
+    field.className = 'bar-flange-field';
+    field.innerHTML = `
       <label class="field-label" for="bar-flange-${i + 1}">Flange ${i + 1}</label>
-      <input type="text" id="bar-flange-${i + 1}" class="bar-flange-input" inputmode="decimal" value="${val || ''}" placeholder="0" autocomplete="off" />
-    </div>
-  `).join('');
+      <input
+        type="text"
+        id="bar-flange-${i + 1}"
+        class="bar-flange-input"
+        inputmode="decimal"
+        placeholder="e.g. ${i === 0 ? '80' : '200'}"
+        autocomplete="off"
+        value="${escapeHtml(previousValues[i] || '')}"
+      />
+    `;
+    row.appendChild(field);
 
-  on($('#bar-bend-calc-btn'), 'click', calculateBarBending);
-  on($('#bar-num-folds'), 'input', calculateBarBending);
+    if (i > 0) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn bar-flange-remove';
+      removeBtn.setAttribute('aria-label', `Remove flange ${i + 1}`);
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', () => {
+        const values = collectBarFlangeValues();
+        values.splice(i, 1);
+        barFlangeCount = Math.max(1, barFlangeCount - 1);
+        renderBarFlangeInputs(values);
+        updateBarFoldBadge();
+        calculateBarBending();
+      });
+      row.appendChild(removeBtn);
+    }
+
+    list.appendChild(row);
+  }
 
   $$('.bar-flange-input').forEach((el) => on(el, 'input', calculateBarBending));
-  $$('input[name="bar-size"]').forEach((el) => on(el, 'change', calculateBarBending));
 
-  calculateBarBending();
+  const addBtn = $('#bar-add-flange-btn');
+  if (addBtn) {
+    addBtn.disabled = barFlangeCount >= 7;
+    addBtn.textContent = barFlangeCount >= 7 ? 'Maximum 7 flanges' : '+ Add flange';
+  }
+}
+
+function updateBarFoldBadge() {
+  const badge = $('#bar-fold-badge');
+  if (!badge) return;
+  const bends = Math.max(0, barFlangeCount - 1);
+  badge.textContent = bends === 1 ? '1 bend' : `${bends} bends`;
 }
 
 function readBarBendingInputs() {
-  const flanges = [];
-  for (let i = 1; i <= 7; i += 1) {
-    const val = parseBarNumber($(`#bar-flange-${i}`)?.value);
-    flanges.push(val ?? 0);
-  }
-
-  const numFolds = parseBarNumber($('#bar-num-folds')?.value);
+  const flanges = collectBarFlangeValues().map((raw) => parseBarNumber(raw) ?? 0);
   const barSize = document.querySelector('input[name="bar-size"]:checked')?.value || '10';
-
-  return { flanges, numFolds, barSize: Number(barSize) };
+  return { flanges, barSize: Number(barSize) };
 }
 
 function calculateBarBending() {
-  const { flanges, numFolds, barSize } = readBarBendingInputs();
+  const { flanges, barSize } = readBarBendingInputs();
+  const hasValue = flanges.some((f) => f > 0);
 
-  if (!numFolds || numFolds < 1) {
-    showToast('Enter a valid number of folds.');
+  if (!hasValue) {
     $('#bar-bend-results')?.classList.add('hidden');
     return;
   }
 
-  if (!flanges.some((f) => f > 0)) {
-    showToast('Enter at least one flange length.');
-    $('#bar-bend-results')?.classList.add('hidden');
-    return;
-  }
-
-  const result = calcBarBending(flanges, numFolds, barSize);
+  const result = calcBarBending(flanges, barSize);
   renderBarBendingResults(result);
 }
 
@@ -547,16 +599,19 @@ function renderBarBendingResults(result) {
   }
 
   if (backstopList) {
-    const rows = result.activeBackstops.filter((row) => row.flangeMm > 0 || row.fold <= result.numFolds);
-    backstopList.innerHTML = rows.map((row) => `
-      <div class="bar-backstop-row">
-        <div>
-          <div class="bar-backstop-fold">Fold ${row.fold}</div>
-          <div class="bar-backstop-flange">Flange ${fmtBar(row.flangeMm)} mm</div>
+    if (result.numFolds === 0) {
+      backstopList.innerHTML = '<p class="card-desc">Straight bar — no backstop settings needed.</p>';
+    } else {
+      backstopList.innerHTML = result.activeBackstops.map((row) => `
+        <div class="bar-backstop-row">
+          <div>
+            <div class="bar-backstop-fold">Fold ${row.fold}</div>
+            <div class="bar-backstop-flange">Flange ${fmtBar(row.flangeMm)} mm</div>
+          </div>
+          <div class="bar-backstop-value">${fmtBar(row.backstopMm)} <span>mm</span></div>
         </div>
-        <div class="bar-backstop-value">${fmtBar(row.backstopMm)} <span>mm</span></div>
-      </div>
-    `).join('');
+      `).join('');
+    }
   }
 
   renderBarBendingDiagram(diagram, result);

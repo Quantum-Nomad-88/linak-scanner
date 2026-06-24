@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=25" />
+  <link rel="stylesheet" href="css/app.css?v=26" />
 </head>
 <body>
   <header class="header">
@@ -146,20 +146,22 @@
           <p class="card-desc">Press brake calculator — cut length and backstop settings for 3 mm radius + 50 mm V.</p>
         </div>
 
-        <label class="field-label">Bar size</label>
+        <label class="field-label">Step 1 — Bar size</label>
         <div class="bar-size-row" role="radiogroup" aria-label="Bar size">
           <label class="bar-size-option"><input type="radio" name="bar-size" value="10" checked /> 10 mm</label>
           <label class="bar-size-option"><input type="radio" name="bar-size" value="8" /> 8 mm</label>
           <label class="bar-size-option"><input type="radio" name="bar-size" value="4" /> 4 mm</label>
         </div>
 
-        <label class="field-label" for="bar-num-folds">Number of folds</label>
-        <input type="text" id="bar-num-folds" inputmode="numeric" value="2" autocomplete="off" />
+        <div class="bar-flange-header">
+          <label class="field-label">Step 2 — Flange lengths (mm)</label>
+          <span id="bar-fold-badge" class="bar-fold-badge">0 bends</span>
+        </div>
+        <p class="card-desc bar-flange-hint">Each extra flange adds one bend automatically.</p>
 
-        <label class="field-label">Flange lengths (mm)</label>
-        <div id="bar-flange-inputs" class="bar-flange-grid"></div>
+        <div id="bar-flange-list" class="bar-flange-list"></div>
 
-        <button type="button" id="bar-bend-calc-btn" class="btn primary full">Calculate</button>
+        <button type="button" id="bar-add-flange-btn" class="btn full bar-add-flange-btn">+ Add flange</button>
       </div>
 
       <div id="bar-bend-results" class="hidden">
@@ -254,7 +256,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v15';
+      var SW_KEY = 'linak-sw-reset-v16';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -284,7 +286,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=25').catch(function (err) {
+    import('./js/app.js?v=26').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
