@@ -19,7 +19,8 @@ function scaleSegments(values, maxWidth) {
 }
 
 function renderFlatPattern(svg, result, width, height) {
-  const flanges = result.activeFlanges.length ? result.activeFlanges : [1];
+  const sourceFlanges = result.activeFlanges || result.flanges || [];
+  const flanges = sourceFlanges.length ? sourceFlanges : [1];
   const { padding, segments } = scaleSegments(flanges, width);
   const barH = 18;
   const y = height * 0.38;
@@ -85,7 +86,8 @@ function renderFlatPattern(svg, result, width, height) {
 }
 
 function renderBentProfile(svg, result, width, height) {
-  const flanges = result.activeFlanges.length ? result.activeFlanges : [1];
+  const sourceFlanges = result.activeFlanges || result.flanges || [];
+  const flanges = sourceFlanges.length ? sourceFlanges : [1];
   const maxLeg = Math.max(...flanges, 1);
   const unit = (height * 0.55) / maxLeg;
   const originX = width * 0.12;

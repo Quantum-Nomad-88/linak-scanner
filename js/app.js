@@ -506,6 +506,9 @@ function initBarBendingUi() {
       renderBarBendingDiagram($('#bar-bend-diagram'), lastBarBendingResult);
     }
   });
+
+  // Render immediately if there are default values.
+  calculateBarBending();
 }
 
 function collectBarFlangeValues() {
