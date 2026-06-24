@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=22" />
+  <link rel="stylesheet" href="css/app.css?v=23" />
 </head>
 <body>
   <header class="header">
@@ -21,7 +21,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <div>
         <h1>LINAK Actuator Toolkit</h1>
-        <p class="subtitle">Label scanner · bed &amp; seat weight distribution</p>
+        <p class="subtitle">Label scanner · LA40 mods · test weights</p>
       </div>
     </div>
   </header>
@@ -107,6 +107,53 @@
       </div>
     </section>
 
+    <!-- LA40 MODIFICATIONS -->
+    <section id="view-la40-mods" class="view hidden">
+      <div class="card la40-calc-card">
+        <div class="card-head">
+          <h2>LA40 modifications</h2>
+          <p class="card-desc">Enter install and stroke — component cut lengths match the LA-40 Calc spreadsheet.</p>
+        </div>
+
+        <div class="la40-input-grid">
+          <div>
+            <label class="field-label" for="la40-install">Install (mm)</label>
+            <input type="text" id="la40-install" inputmode="decimal" placeholder="e.g. 312" autocomplete="off" />
+          </div>
+          <div>
+            <label class="field-label" for="la40-stroke">Stroke (mm)</label>
+            <input type="text" id="la40-stroke" inputmode="decimal" placeholder="e.g. 142" autocomplete="off" />
+          </div>
+        </div>
+        <button type="button" id="la40-mods-calc-btn" class="btn primary full">Calculate components</button>
+
+        <div id="la40-mods-summary" class="la40-summary hidden">
+          <div class="la40-summary-item">
+            <span class="la40-summary-label">Fully extended</span>
+            <span id="la40-fully-extended" class="la40-summary-value">—</span>
+          </div>
+          <div class="la40-summary-item">
+            <span class="la40-summary-label">Threaded rod (std)</span>
+            <span id="la40-threaded-std" class="la40-summary-value">—</span>
+          </div>
+          <div class="la40-summary-item">
+            <span class="la40-summary-label">Threaded rod (min)</span>
+            <span id="la40-threaded-min" class="la40-summary-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="la40-components" class="la40-components hidden"></div>
+
+      <div id="la40-jig-card" class="card la40-jig-card hidden">
+        <div class="card-head">
+          <h2>Jig positions</h2>
+          <p class="card-desc">Set-point distances from install datum (380 mm reference).</p>
+        </div>
+        <div id="la40-jig-grid" class="results-grid"></div>
+      </div>
+    </section>
+
     <!-- WEIGHT DISTRIBUTION -->
     <section id="view-weights" class="view hidden">
       <div class="card">
@@ -142,6 +189,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a2 2 0 0 1 2-2h3"/><path d="M20 7V5a2 2 0 0 0-2-2h-3"/><path d="M4 17v2a2 2 0 0 0 2 2h3"/><path d="M20 17v2a2 2 0 0 1-2 2h-3"/><rect x="7" y="9" width="10" height="6" rx="1"/></svg>
       <span>Scan</span>
     </button>
+    <button type="button" class="nav-btn" data-view="la40-mods">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg>
+      <span>LA40</span>
+    </button>
     <button type="button" class="nav-btn" data-view="weights">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9v12h16V9Z"/><path d="M9 21v-6h6v6"/></svg>
       <span>Weights</span>
@@ -163,7 +214,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v12';
+      var SW_KEY = 'linak-sw-reset-v13';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -193,7 +244,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=22').catch(function (err) {
+    import('./js/app.js?v=23').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

@@ -8,6 +8,7 @@ import {
 import { buildDecodeHints } from './decoders/motor-catalog.js';
 import { recognizeCapture } from './ocr.js';
 import { drawMaskOverlay, getMaskForMode } from './scan-frame.js';
+import { calcLa40Modifications, LA40_COMPONENTS } from './la40-modifications.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -374,6 +375,14 @@ function renderResults(specs) {
   }
 
   $('#results-section').classList.remove('hidden');
+
+  if (specs.model === 'LA40' && specs.installLengthMm != null && specs.strokeMm != null) {
+    const installInput = $('#la40-install');
+    const strokeInput = $('#la40-stroke');
+    if (installInput) installInput.value = String(specs.installLengthMm);
+    if (strokeInput) strokeInput.value = String(specs.strokeMm);
+  }
+
   showView('scan');
 }
 
@@ -404,6 +413,85 @@ function formatSpecsText(s) {
     s.workOrder ? `W/O: ${s.workOrder}` : null,
   ].filter(Boolean);
   return lines.join('\n');
+}
+
+// --- LA40 modifications ---
+function initLa40ModsUi() {
+  on($('#la40-mods-calc-btn'), 'click', calculateLa40Modifications);
+  on($('#la40-install'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateLa40Modifications();
+  });
+  on($('#la40-stroke'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateLa40Modifications();
+  });
+}
+
+function calculateLa40Modifications() {
+  const install = parseWeightInput($('#la40-install')?.value);
+  const stroke = parseWeightInput($('#la40-stroke')?.value);
+
+  if (!install || !stroke) {
+    showToast('Enter valid install and stroke values in mm.');
+    $('#la40-mods-summary')?.classList.add('hidden');
+    $('#la40-components')?.classList.add('hidden');
+    $('#la40-jig-card')?.classList.add('hidden');
+    return;
+  }
+
+  const result = calcLa40Modifications(install, stroke);
+  renderLa40Modifications(result);
+}
+
+function renderLa40Modifications(result) {
+  const summary = $('#la40-mods-summary');
+  const fullyExtended = $('#la40-fully-extended');
+  const threadedStd = $('#la40-threaded-std');
+  const threadedMin = $('#la40-threaded-min');
+  const componentsEl = $('#la40-components');
+  const jigCard = $('#la40-jig-card');
+  const jigGrid = $('#la40-jig-grid');
+
+  if (fullyExtended) fullyExtended.textContent = `${result.fullyExtendedMm} mm`;
+  if (threadedStd) threadedStd.textContent = `${result.threadedRodStdMm} mm`;
+  if (threadedMin) threadedMin.textContent = `${result.threadedRodMinMm} mm`;
+  summary?.classList.remove('hidden');
+
+  if (componentsEl) {
+    componentsEl.innerHTML = LA40_COMPONENTS.map((comp) => {
+      const length = result[comp.lengthKey];
+      const formula = result.formulas[comp.formulaKey];
+      return `
+        <article class="card la40-component-card">
+          <div class="la40-component-layout">
+            <div class="la40-component-info">
+              <h3>${escapeHtml(comp.name)}</h3>
+              <p class="la40-component-length">${escapeHtml(String(length))} <span>mm</span></p>
+              <p class="la40-component-formula">${escapeHtml(formula)}</p>
+              <p class="la40-component-note">${escapeHtml(comp.note)}</p>
+            </div>
+            <img class="la40-component-photo" src="${comp.image}" alt="${escapeHtml(comp.name)}" loading="lazy" />
+          </div>
+        </article>
+      `;
+    }).join('');
+    componentsEl.classList.remove('hidden');
+  }
+
+  if (jigGrid) {
+    const jigRows = [
+      ['OG', result.jigPositions.og],
+      ['Outer tube', result.jigPositions.outer],
+      ['Threaded rod', result.jigPositions.threadedRod],
+      ['Limit switch', result.jigPositions.limitSwitch],
+    ];
+    jigGrid.innerHTML = jigRows.map(([label, value]) => `
+      <div class="spec-row">
+        <span class="spec-label">${escapeHtml(label)}</span>
+        <span class="spec-value">${escapeHtml(String(value))} mm</span>
+      </div>
+    `).join('');
+    jigCard?.classList.remove('hidden');
+  }
 }
 
 // --- Weight calculators ---
@@ -523,6 +611,7 @@ function bootApp() {
     initCameraUi();
     initOcrUi();
     initResultsUi();
+    initLa40ModsUi();
     initWeightCalculatorUi();
     initServiceWorker();
     showView('scan');

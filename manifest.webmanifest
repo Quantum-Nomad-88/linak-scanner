@@ -1,7 +1,7 @@
 {
   "name": "LINAK Actuator Toolkit",
   "short_name": "LINAK Toolkit",
-  "description": "Scan LINAK actuator labels and calculate bed and seat test weight distribution",
+  "description": "Scan LINAK actuator labels, LA40 modification calculator, and test weight distribution",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f4f5f7",
