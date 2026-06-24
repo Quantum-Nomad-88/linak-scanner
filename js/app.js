@@ -480,12 +480,15 @@ function renderLa40Modifications(result) {
 
 // --- Bar bending ---
 let barFlangeCount = 1;
+let barFoldDirections = [];
 
 function initBarBendingUi() {
   const list = $('#bar-flange-list');
   if (!list) return;
 
+  syncBarFoldDirections();
   renderBarFlangeInputs();
+  renderBarDirectionControls();
   updateBarFoldBadge();
 
   on($('#bar-add-flange-btn'), 'click', (e) => {
@@ -493,7 +496,9 @@ function initBarBendingUi() {
     if (barFlangeCount >= 7) return;
     const values = collectBarFlangeValues();
     barFlangeCount += 1;
+    syncBarFoldDirections();
     renderBarFlangeInputs(values);
+    renderBarDirectionControls();
     updateBarFoldBadge();
     calculateBarBending();
     $('#bar-flange-list')?.lastElementChild?.querySelector('.bar-flange-input')?.focus();
@@ -551,7 +556,9 @@ function renderBarFlangeInputs(previousValues = []) {
         const values = collectBarFlangeValues();
         values.splice(i, 1);
         barFlangeCount = Math.max(1, barFlangeCount - 1);
+        syncBarFoldDirections();
         renderBarFlangeInputs(values);
+        renderBarDirectionControls();
         updateBarFoldBadge();
         calculateBarBending();
       });
@@ -570,6 +577,52 @@ function renderBarFlangeInputs(previousValues = []) {
   }
 }
 
+function syncBarFoldDirections() {
+  const required = Math.max(0, barFlangeCount - 1);
+  barFoldDirections = Array.from({ length: required }, (_, i) =>
+    barFoldDirections[i] === -1 ? -1 : 1
+  );
+}
+
+function renderBarDirectionControls() {
+  const wrap = $('#bar-direction-wrap');
+  const list = $('#bar-direction-list');
+  if (!wrap || !list) return;
+
+  const bends = Math.max(0, barFlangeCount - 1);
+  if (bends === 0) {
+    wrap.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  list.innerHTML = '';
+
+  for (let i = 0; i < bends; i += 1) {
+    const dir = barFoldDirections[i] === -1 ? -1 : 1;
+    const row = document.createElement('div');
+    row.className = 'bar-direction-row';
+    row.innerHTML = `
+      <span class="bar-direction-label">Fold ${i + 1}</span>
+      <button type="button" class="btn bar-direction-btn ${dir === 1 ? 'active' : ''}" data-fold="${i}" data-dir="1">+90</button>
+      <button type="button" class="btn bar-direction-btn ${dir === -1 ? 'active' : ''}" data-fold="${i}" data-dir="-1">-90</button>
+    `;
+    list.appendChild(row);
+  }
+
+  $$('.bar-direction-btn').forEach((btn) => {
+    on(btn, 'click', () => {
+      const foldIdx = Number(btn.dataset.fold);
+      const dir = Number(btn.dataset.dir);
+      if (!Number.isInteger(foldIdx) || (dir !== 1 && dir !== -1)) return;
+      barFoldDirections[foldIdx] = dir;
+      renderBarDirectionControls();
+      calculateBarBending();
+    });
+  });
+}
+
 function updateBarFoldBadge() {
   const badge = $('#bar-fold-badge');
   if (!badge) return;
@@ -580,11 +633,11 @@ function updateBarFoldBadge() {
 function readBarBendingInputs() {
   const flanges = collectBarFlangeValues().map((raw) => parseBarNumber(raw) ?? 0);
   const barSize = document.querySelector('input[name="bar-size"]:checked')?.value || '10';
-  return { flanges, barSize: Number(barSize) };
+  return { flanges, barSize: Number(barSize), foldDirections: barFoldDirections };
 }
 
 function calculateBarBending() {
-  const { flanges, barSize } = readBarBendingInputs();
+  const { flanges, barSize, foldDirections } = readBarBendingInputs();
   const hasValue = flanges.some((f) => f > 0);
 
   if (!hasValue) {
@@ -593,7 +646,7 @@ function calculateBarBending() {
     return;
   }
 
-  const result = calcBarBending(flanges, barSize);
+  const result = calcBarBending(flanges, barSize, foldDirections);
   lastBarBendingResult = result;
   renderBarBendingResults(result);
 }

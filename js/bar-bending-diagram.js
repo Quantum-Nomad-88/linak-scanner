@@ -88,6 +88,7 @@ function renderFlatPattern(svg, result, width, height) {
 function renderBentProfile(svg, result, width, height) {
   const sourceFlanges = result.activeFlanges || result.flanges || [];
   const flanges = sourceFlanges.length ? sourceFlanges : [1];
+  const directions = result.foldDirections || [];
   const maxLeg = Math.max(...flanges, 1);
   const unit = (height * 0.55) / maxLeg;
   const originX = width * 0.12;
@@ -107,7 +108,8 @@ function renderBentProfile(svg, result, width, height) {
     points.push({ x, y, len, fold: i });
 
     if (i < flanges.length - 1) {
-      angle += Math.PI / 2;
+      const dir = directions[i] === -1 ? -1 : 1;
+      angle += dir * (Math.PI / 2);
     }
   });
 
@@ -128,6 +130,16 @@ function renderBentProfile(svg, result, width, height) {
     label.setAttribute('class', 'bend-dim-label');
     label.textContent = `${fmt(flanges[i])}`;
     g.appendChild(label);
+
+    if (i < directions.length) {
+      const bendDir = directions[i] === -1 ? '-90' : '+90';
+      const dirLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      dirLabel.setAttribute('x', mx);
+      dirLabel.setAttribute('y', my + 12);
+      dirLabel.setAttribute('class', 'bend-fold-label');
+      dirLabel.textContent = bendDir;
+      g.appendChild(dirLabel);
+    }
   }
 
   const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');

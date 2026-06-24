@@ -878,6 +878,46 @@ select:focus {
   gap: 0.5rem;
 }
 
+.bar-direction-wrap {
+  margin-top: 0.75rem;
+}
+
+.bar-direction-wrap .field-label {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+}
+
+.bar-direction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bar-direction-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 1fr;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.bar-direction-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.bar-direction-btn {
+  min-width: 0;
+  padding: 0.45rem 0.3rem;
+  font-size: 0.78rem;
+}
+
+.bar-direction-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
 .bar-flange-row {
   display: flex;
   align-items: flex-end;

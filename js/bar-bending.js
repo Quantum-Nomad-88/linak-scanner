@@ -13,8 +13,9 @@ export const BAR_SIZES = {
  * Bends = number of flanges − 1 (2 flanges → 1 bend, 3 flanges → 2 bends, …)
  * @param {number[]} flanges - flange lengths in order
  * @param {10|8|4} barSizeKey
+ * @param {number[]} [foldDirections] - 1 for +90, -1 for -90
  */
-export function calcBarBending(flanges, barSizeKey) {
+export function calcBarBending(flanges, barSizeKey, foldDirections = []) {
   const bar = BAR_SIZES[barSizeKey];
   if (!bar) throw new Error('Invalid bar size');
 
@@ -23,6 +24,9 @@ export function calcBarBending(flanges, barSizeKey) {
     .slice(0, MAX_FLANGES);
 
   const numFolds = Math.max(0, activeFlanges.length - 1);
+  const normalizedDirections = Array.from({ length: numFolds }, (_, i) =>
+    foldDirections[i] === -1 ? -1 : 1
+  );
   const flangeSum = activeFlanges.reduce((sum, n) => sum + n, 0);
   const cutLength = flangeSum - numFolds * bar.deduction;
 
@@ -52,6 +56,7 @@ export function calcBarBending(flanges, barSizeKey) {
     ),
     backstops,
     activeBackstops: backstops,
+    foldDirections: normalizedDirections,
   };
 }
 
