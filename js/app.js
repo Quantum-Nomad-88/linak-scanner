@@ -479,7 +479,8 @@ function renderLa40Modifications(result) {
 }
 
 // --- Bar bending ---
-let barFlangeCount = 1;
+let barFlangeCount = 2;
+const BAR_DEFAULT_FLANGES = ['80', '200', '30'];
 let barFoldDirections = [];
 
 function initBarBendingUi() {
@@ -487,7 +488,7 @@ function initBarBendingUi() {
   if (!list) return;
 
   syncBarFoldDirections();
-  renderBarFlangeInputs();
+  renderBarFlangeInputs(BAR_DEFAULT_FLANGES);
   renderBarDirectionControls();
   updateBarFoldBadge();
 
