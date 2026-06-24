@@ -489,7 +489,6 @@ function initBarBendingUi() {
 
   syncBarFoldDirections();
   renderBarFlangeInputs(BAR_DEFAULT_FLANGES);
-  renderBarDirectionControls();
   updateBarFoldBadge();
 
   on($('#bar-add-flange-btn'), 'click', (e) => {
@@ -499,7 +498,6 @@ function initBarBendingUi() {
     barFlangeCount += 1;
     syncBarFoldDirections();
     renderBarFlangeInputs(values);
-    renderBarDirectionControls();
     updateBarFoldBadge();
     calculateBarBending();
     $('#bar-flange-list')?.lastElementChild?.querySelector('.bar-flange-input')?.focus();
@@ -533,18 +531,40 @@ function renderBarFlangeInputs(previousValues = []) {
 
     const field = document.createElement('div');
     field.className = 'bar-flange-field';
-    field.innerHTML = `
-      <label class="field-label" for="bar-flange-${i + 1}">Flange ${i + 1}</label>
-      <input
-        type="text"
-        id="bar-flange-${i + 1}"
-        class="bar-flange-input"
-        inputmode="decimal"
-        placeholder="e.g. ${i === 0 ? '80' : '200'}"
-        autocomplete="off"
-        value="${escapeHtml(previousValues[i] || '')}"
-      />
-    `;
+    if (i > 0) {
+      const dir = barFoldDirections[i - 1] === -1 ? -1 : 1;
+      field.innerHTML = `
+        <label class="field-label" for="bar-flange-${i + 1}">Flange ${i + 1}</label>
+        <div class="bar-flange-input-row">
+          <input
+            type="text"
+            id="bar-flange-${i + 1}"
+            class="bar-flange-input"
+            inputmode="decimal"
+            placeholder="e.g. 200"
+            autocomplete="off"
+            value="${escapeHtml(previousValues[i] || '')}"
+          />
+          <div class="bar-inline-direction">
+            <button type="button" class="btn bar-angle-btn ${dir === 1 ? 'active' : ''}" data-fold="${i - 1}" data-dir="1">+90</button>
+            <button type="button" class="btn bar-angle-btn ${dir === -1 ? 'active' : ''}" data-fold="${i - 1}" data-dir="-1">-90</button>
+          </div>
+        </div>
+      `;
+    } else {
+      field.innerHTML = `
+        <label class="field-label" for="bar-flange-${i + 1}">Flange ${i + 1}</label>
+        <input
+          type="text"
+          id="bar-flange-${i + 1}"
+          class="bar-flange-input"
+          inputmode="decimal"
+          placeholder="e.g. 80"
+          autocomplete="off"
+          value="${escapeHtml(previousValues[i] || '')}"
+        />
+      `;
+    }
     row.appendChild(field);
 
     if (i > 0) {
@@ -559,7 +579,6 @@ function renderBarFlangeInputs(previousValues = []) {
         barFlangeCount = Math.max(1, barFlangeCount - 1);
         syncBarFoldDirections();
         renderBarFlangeInputs(values);
-        renderBarDirectionControls();
         updateBarFoldBadge();
         calculateBarBending();
       });
@@ -570,6 +589,16 @@ function renderBarFlangeInputs(previousValues = []) {
   }
 
   $$('.bar-flange-input').forEach((el) => on(el, 'input', calculateBarBending));
+  $$('.bar-angle-btn').forEach((btn) => {
+    on(btn, 'click', () => {
+      const foldIdx = Number(btn.dataset.fold);
+      const dir = Number(btn.dataset.dir);
+      if (!Number.isInteger(foldIdx) || (dir !== 1 && dir !== -1)) return;
+      barFoldDirections[foldIdx] = dir;
+      renderBarFlangeInputs(collectBarFlangeValues());
+      calculateBarBending();
+    });
+  });
 
   const addBtn = $('#bar-add-flange-btn');
   if (addBtn) {
@@ -583,45 +612,6 @@ function syncBarFoldDirections() {
   barFoldDirections = Array.from({ length: required }, (_, i) =>
     barFoldDirections[i] === -1 ? -1 : 1
   );
-}
-
-function renderBarDirectionControls() {
-  const wrap = $('#bar-direction-wrap');
-  const list = $('#bar-direction-list');
-  if (!wrap || !list) return;
-
-  const bends = Math.max(0, barFlangeCount - 1);
-  if (bends === 0) {
-    wrap.classList.add('hidden');
-    list.innerHTML = '';
-    return;
-  }
-
-  wrap.classList.remove('hidden');
-  list.innerHTML = '';
-
-  for (let i = 0; i < bends; i += 1) {
-    const dir = barFoldDirections[i] === -1 ? -1 : 1;
-    const row = document.createElement('div');
-    row.className = 'bar-direction-row';
-    row.innerHTML = `
-      <span class="bar-direction-label">Fold ${i + 1}</span>
-      <button type="button" class="btn bar-direction-btn ${dir === 1 ? 'active' : ''}" data-fold="${i}" data-dir="1">+90</button>
-      <button type="button" class="btn bar-direction-btn ${dir === -1 ? 'active' : ''}" data-fold="${i}" data-dir="-1">-90</button>
-    `;
-    list.appendChild(row);
-  }
-
-  $$('.bar-direction-btn').forEach((btn) => {
-    on(btn, 'click', () => {
-      const foldIdx = Number(btn.dataset.fold);
-      const dir = Number(btn.dataset.dir);
-      if (!Number.isInteger(foldIdx) || (dir !== 1 && dir !== -1)) return;
-      barFoldDirections[foldIdx] = dir;
-      renderBarDirectionControls();
-      calculateBarBending();
-    });
-  });
 }
 
 function updateBarFoldBadge() {

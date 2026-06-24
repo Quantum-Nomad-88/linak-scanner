@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=27" />
+  <link rel="stylesheet" href="css/app.css?v=28" />
 </head>
 <body>
   <header class="header">
@@ -160,10 +160,6 @@
         <p class="card-desc bar-flange-hint">Each extra flange adds one bend automatically.</p>
 
         <div id="bar-flange-list" class="bar-flange-list"></div>
-        <div id="bar-direction-wrap" class="bar-direction-wrap hidden">
-          <label class="field-label">Fold direction</label>
-          <div id="bar-direction-list" class="bar-direction-list"></div>
-        </div>
 
         <button type="button" id="bar-add-flange-btn" class="btn full bar-add-flange-btn">+ Add flange</button>
       </div>
@@ -189,7 +185,7 @@
         <div class="card bar-diagram-card">
           <div class="card-head">
             <h2>Diagram</h2>
-            <p class="card-desc">Flat pattern and bent profile update as you change dimensions.</p>
+            <p class="card-desc">Bent profile updates live as you change lengths and fold direction.</p>
           </div>
           <div id="bar-bend-diagram" class="bar-bend-diagram"></div>
         </div>
@@ -260,7 +256,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v20';
+      var SW_KEY = 'linak-sw-reset-v22';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -290,7 +286,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=30').catch(function (err) {
+    import('./js/app.js?v=32').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

@@ -878,46 +878,6 @@ select:focus {
   gap: 0.5rem;
 }
 
-.bar-direction-wrap {
-  margin-top: 0.75rem;
-}
-
-.bar-direction-wrap .field-label {
-  margin-top: 0;
-  margin-bottom: 0.35rem;
-}
-
-.bar-direction-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.bar-direction-row {
-  display: grid;
-  grid-template-columns: 70px 1fr 1fr;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.bar-direction-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.bar-direction-btn {
-  min-width: 0;
-  padding: 0.45rem 0.3rem;
-  font-size: 0.78rem;
-}
-
-.bar-direction-btn.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-dark);
-}
-
 .bar-flange-row {
   display: flex;
   align-items: flex-end;
@@ -926,6 +886,33 @@ select:focus {
 
 .bar-flange-row .bar-flange-field {
   flex: 1;
+}
+
+.bar-flange-input-row {
+  display: grid;
+  grid-template-columns: 1fr 122px;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.bar-inline-direction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.bar-angle-btn {
+  min-width: 0;
+  padding: 0.4rem 0.15rem;
+  font-size: 0.76rem;
+  margin: 0;
+}
+
+.bar-angle-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
 }
 
 .bar-flange-remove {
@@ -1054,24 +1041,6 @@ select:focus {
   display: block;
 }
 
-.bend-diagram-bent {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border);
-}
-
-.bend-bar-segment {
-  fill: #8b939e;
-  stroke: #5c6570;
-  stroke-width: 1;
-}
-
-.bend-fold-line {
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
-}
-
 .bend-fold-label,
 .bend-dim-label {
   fill: var(--text);
@@ -1086,13 +1055,6 @@ select:focus {
   font-size: 10px;
 }
 
-.bend-total-line {
-  stroke: var(--text-tertiary);
-  stroke-width: 1;
-  marker-start: url(#none);
-}
-
-.bend-total-label,
 .bend-diagram-title {
   fill: var(--text-secondary);
   font-size: 11px;
