@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=29" />
+  <link rel="stylesheet" href="css/app.css?v=30" />
 </head>
 <body>
   <header class="header">
@@ -112,7 +112,7 @@
       <div class="card la40-calc-card">
         <div class="card-head">
           <h2>LA40 modifications</h2>
-          <p class="card-desc">Enter install and stroke to get the cut length for each LA40 component.</p>
+          <p class="card-desc">Enter install and stroke. Cycle times update from stroke; tap Calculate for component cut lengths.</p>
         </div>
 
         <div class="la40-input-grid">
@@ -135,7 +135,7 @@
         </div>
       </div>
 
-      <div id="la40-cycle-times" class="card la40-cycle-card hidden">
+      <div id="la40-cycle-times" class="card la40-cycle-card">
         <div class="card-head">
           <h2>Cycle time estimate</h2>
           <p class="card-desc">Full cycles (extend + retract). Adjust speed, duty cycle, or dwell time.</p>
@@ -319,7 +319,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v23';
+      var SW_KEY = 'linak-sw-reset-v24';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -349,7 +349,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=33').catch(function (err) {
+    import('./js/app.js?v=34').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

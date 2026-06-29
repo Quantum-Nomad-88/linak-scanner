@@ -48,6 +48,9 @@ function showView(name) {
   if (name === 'bar-bend' && lastBarBendingResult) {
     scheduleBarDiagramRender(lastBarBendingResult);
   }
+  if (name === 'la40-mods') {
+    syncLa40CycleFromStrokeInput();
+  }
 }
 
 // --- Camera / file ---
@@ -441,6 +444,7 @@ function initLa40ModsUi() {
   on($('#la40-stroke'), 'keydown', (e) => {
     if (e.key === 'Enter') calculateLa40Modifications();
   });
+  on($('#la40-stroke'), 'input', syncLa40CycleFromStrokeInput);
 
   const cycleInputs = ['#la40-cycle-speed', '#la40-cycle-count'];
   cycleInputs.forEach((sel) => {
@@ -484,6 +488,22 @@ function syncLa40DutySelectFromFraction(fraction) {
 
   const preset = matchDutyPreset(fraction);
   dutySelect.value = preset != null ? String(preset) : 'custom';
+}
+
+function syncLa40CycleFromStrokeInput() {
+  const stroke = parseWeightInput($('#la40-stroke')?.value);
+  if (stroke) {
+    la40CycleStrokeMm = stroke;
+    updateLa40CycleDisplay(false);
+    return;
+  }
+
+  la40CycleStrokeMm = null;
+  $('#la40-cycle-extend') && ($('#la40-cycle-extend').textContent = '—');
+  $('#la40-cycle-duty-pct') && ($('#la40-cycle-duty-pct').textContent = '—');
+  $('#la40-cycle-days') && ($('#la40-cycle-days').textContent = '—');
+  const tableBody = $('#la40-cycle-table-body');
+  if (tableBody) tableBody.innerHTML = '';
 }
 
 function updateLa40CycleDisplay(fromDwellInput = false) {
@@ -553,12 +573,6 @@ function updateLa40CycleDisplay(fromDwellInput = false) {
   }
 }
 
-function showLa40CycleCard(strokeMm) {
-  la40CycleStrokeMm = strokeMm;
-  $('#la40-cycle-times')?.classList.remove('hidden');
-  updateLa40CycleDisplay(false);
-}
-
 function calculateLa40Modifications() {
   const install = parseWeightInput($('#la40-install')?.value);
   const stroke = parseWeightInput($('#la40-stroke')?.value);
@@ -567,8 +581,8 @@ function calculateLa40Modifications() {
     showToast('Enter valid install and stroke values in mm.');
     la40CycleStrokeMm = null;
     $('#la40-mods-summary')?.classList.add('hidden');
-    $('#la40-cycle-times')?.classList.add('hidden');
     $('#la40-components')?.classList.add('hidden');
+    syncLa40CycleFromStrokeInput();
     return;
   }
 
@@ -592,7 +606,7 @@ function renderLa40Modifications(result) {
   if (fullyExtended) fullyExtended.textContent = `${result.fullyExtendedMm} mm`;
   summary?.classList.remove('hidden');
 
-  showLa40CycleCard(result.strokeMm);
+  syncLa40CycleFromStrokeInput();
 
   if (componentsEl) {
     componentsEl.innerHTML = LA40_COMPONENTS.map((comp) => {
