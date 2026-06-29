@@ -32,6 +32,102 @@ export function calcLa40Modifications(installMm, strokeMm) {
   };
 }
 
+export const LA40_CYCLE_DEFAULTS = {
+  STROKE_SPEED_MM_S: 2.5,
+  CYCLE_COUNT: 3000,
+  SECONDS_PER_DAY: 86400,
+  DUTY_PRESETS: [
+    { label: '25%', fraction: 0.25 },
+    { label: '50%', fraction: 0.5 },
+    { label: '75%', fraction: 0.75 },
+    { label: '100%', fraction: 1.0 },
+  ],
+};
+
+/** @param {number} timeToExtendS */
+export function dwellFromDutyFraction(timeToExtendS, fraction) {
+  if (fraction >= 1) return 0;
+  return timeToExtendS / fraction - timeToExtendS;
+}
+
+/** @param {number} timeToExtendS */
+export function dutyFractionFromDwell(timeToExtendS, dwellTimeS) {
+  if (dwellTimeS <= 0) return 1;
+  return timeToExtendS / (timeToExtendS + dwellTimeS);
+}
+
+/**
+ * @param {number} fraction
+ * @returns {number | null} matching preset fraction, or null
+ */
+export function matchDutyPreset(fraction) {
+  for (const preset of LA40_CYCLE_DEFAULTS.DUTY_PRESETS) {
+    if (Math.abs(fraction - preset.fraction) < 0.005) return preset.fraction;
+  }
+  return null;
+}
+
+/**
+ * @param {number} strokeMm
+ * @param {{ strokeSpeedMmS?: number, cycleCount?: number, dutyFraction?: number }} options
+ */
+export function calcLa40CycleScenario(strokeMm, options = {}) {
+  const strokeSpeedMmS = options.strokeSpeedMmS ?? LA40_CYCLE_DEFAULTS.STROKE_SPEED_MM_S;
+  const cycleCount = options.cycleCount ?? LA40_CYCLE_DEFAULTS.CYCLE_COUNT;
+  const dutyFraction = options.dutyFraction ?? 0.5;
+  const { SECONDS_PER_DAY } = LA40_CYCLE_DEFAULTS;
+
+  const timeToExtendS = strokeMm / strokeSpeedMmS;
+  const dwellTimeS = dwellFromDutyFraction(timeToExtendS, dutyFraction);
+  const activeTimePerCycleS = 2 * timeToExtendS;
+  const daysAtFullDuty = (cycleCount * activeTimePerCycleS) / SECONDS_PER_DAY;
+  const daysToComplete = daysAtFullDuty / dutyFraction;
+
+  return {
+    strokeMm,
+    strokeSpeedMmS,
+    cycleCount,
+    dutyFraction,
+    dutyPercent: dutyFraction * 100,
+    timeToExtendS,
+    dwellTimeS,
+    activeTimePerCycleS,
+    daysToComplete,
+  };
+}
+
+/**
+ * Reference table for all preset duty cycles.
+ *
+ * @param {number} strokeMm
+ * @param {{ strokeSpeedMmS?: number, cycleCount?: number }} [options]
+ */
+export function calcLa40CycleTimes(strokeMm, options = {}) {
+  const strokeSpeedMmS = options.strokeSpeedMmS ?? LA40_CYCLE_DEFAULTS.STROKE_SPEED_MM_S;
+  const cycleCount = options.cycleCount ?? LA40_CYCLE_DEFAULTS.CYCLE_COUNT;
+  const { SECONDS_PER_DAY, DUTY_PRESETS } = LA40_CYCLE_DEFAULTS;
+
+  const timeToExtendS = strokeMm / strokeSpeedMmS;
+  const activeTimePerCycleS = 2 * timeToExtendS;
+  const daysAtFullDuty = (cycleCount * activeTimePerCycleS) / SECONDS_PER_DAY;
+
+  const rows = DUTY_PRESETS.map(({ label, fraction }) => ({
+    label: `${label} duty cycle`,
+    fraction,
+    dwellTimeS: dwellFromDutyFraction(timeToExtendS, fraction),
+    daysToComplete: daysAtFullDuty / fraction,
+  }));
+
+  return {
+    strokeMm,
+    strokeSpeedMmS,
+    cycleCount,
+    timeToExtendS,
+    activeTimePerCycleS,
+    rows,
+  };
+}
+
 export const LA40_COMPONENTS = [
   {
     id: 'outer',

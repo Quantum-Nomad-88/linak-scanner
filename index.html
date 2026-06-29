@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=28" />
+  <link rel="stylesheet" href="css/app.css?v=29" />
 </head>
 <body>
   <header class="header">
@@ -135,6 +135,70 @@
         </div>
       </div>
 
+      <div id="la40-cycle-times" class="card la40-cycle-card hidden">
+        <div class="card-head">
+          <h2>Cycle time estimate</h2>
+          <p class="card-desc">Full cycles (extend + retract). Adjust speed, duty cycle, or dwell time.</p>
+        </div>
+
+        <div class="la40-input-grid">
+          <div>
+            <label class="field-label" for="la40-cycle-speed">Stroke speed (mm/s)</label>
+            <input type="text" id="la40-cycle-speed" inputmode="decimal" value="2.5" autocomplete="off" />
+          </div>
+          <div>
+            <label class="field-label" for="la40-cycle-count">Number of cycles</label>
+            <input type="text" id="la40-cycle-count" inputmode="numeric" value="3000" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="la40-input-grid">
+          <div>
+            <label class="field-label" for="la40-cycle-duty">Duty cycle</label>
+            <select id="la40-cycle-duty">
+              <option value="0.25">25%</option>
+              <option value="0.5" selected>50%</option>
+              <option value="0.75">75%</option>
+              <option value="1">100%</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="la40-cycle-dwell">Dwell time (s)</label>
+            <input type="text" id="la40-cycle-dwell" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="la40-cycle-meta">
+          <div class="la40-summary-item">
+            <span class="la40-summary-label">Time to extend</span>
+            <span id="la40-cycle-extend" class="la40-summary-value">—</span>
+          </div>
+          <div class="la40-summary-item">
+            <span class="la40-summary-label">Calculated duty</span>
+            <span id="la40-cycle-duty-pct" class="la40-summary-value">—</span>
+          </div>
+          <div class="la40-summary-item la40-summary-item-wide">
+            <span class="la40-summary-label">Time to complete cycles</span>
+            <span id="la40-cycle-days" class="la40-summary-value">—</span>
+          </div>
+        </div>
+
+        <p class="la40-cycle-table-title">Preset duty cycles</p>
+        <div class="la40-cycle-table-wrap">
+          <table class="la40-cycle-table">
+            <thead>
+              <tr>
+                <th scope="col">Duty cycle</th>
+                <th scope="col">Dwell (s)</th>
+                <th scope="col">Days</th>
+              </tr>
+            </thead>
+            <tbody id="la40-cycle-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="la40-components" class="la40-components hidden"></div>
     </section>
 
@@ -162,6 +226,12 @@
         <div id="bar-flange-list" class="bar-flange-list"></div>
 
         <button type="button" id="bar-add-flange-btn" class="btn full bar-add-flange-btn">+ Add flange</button>
+
+        <div id="bar-bend-preview-wrap" class="bar-bend-preview-wrap hidden">
+          <label class="field-label">Bent preview</label>
+          <p class="card-desc bar-preview-hint">Live sketch of how the bracket will look when bent.</p>
+          <div id="bar-bend-diagram" class="bar-bend-diagram"></div>
+        </div>
       </div>
 
       <div id="bar-bend-results" class="hidden">
@@ -182,13 +252,6 @@
           <div id="bar-backstop-list" class="bar-backstop-list"></div>
         </div>
 
-        <div class="card bar-diagram-card">
-          <div class="card-head">
-            <h2>Diagram</h2>
-            <p class="card-desc">Bent profile updates live as you change lengths and fold direction.</p>
-          </div>
-          <div id="bar-bend-diagram" class="bar-bend-diagram"></div>
-        </div>
       </div>
     </section>
 
@@ -256,7 +319,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v22';
+      var SW_KEY = 'linak-sw-reset-v23';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -286,7 +349,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=32').catch(function (err) {
+    import('./js/app.js?v=33').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

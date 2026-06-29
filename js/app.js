@@ -8,7 +8,15 @@ import {
 import { buildDecodeHints } from './decoders/motor-catalog.js';
 import { recognizeCapture } from './ocr.js';
 import { drawMaskOverlay, getMaskForMode } from './scan-frame.js';
-import { calcLa40Modifications, LA40_COMPONENTS } from './la40-modifications.js';
+import {
+  calcLa40Modifications,
+  calcLa40CycleTimes,
+  calcLa40CycleScenario,
+  dutyFractionFromDwell,
+  dwellFromDutyFraction,
+  matchDutyPreset,
+  LA40_COMPONENTS,
+} from './la40-modifications.js';
 import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 
@@ -38,9 +46,7 @@ function initNavigation() {
 function showView(name) {
   $$('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
   if (name === 'bar-bend' && lastBarBendingResult) {
-    requestAnimationFrame(() => {
-      renderBarBendingDiagram($('#bar-bend-diagram'), lastBarBendingResult);
-    });
+    scheduleBarDiagramRender(lastBarBendingResult);
   }
 }
 
@@ -425,6 +431,8 @@ function formatSpecsText(s) {
 }
 
 // --- LA40 modifications ---
+let la40CycleStrokeMm = null;
+
 function initLa40ModsUi() {
   on($('#la40-mods-calc-btn'), 'click', calculateLa40Modifications);
   on($('#la40-install'), 'keydown', (e) => {
@@ -433,6 +441,122 @@ function initLa40ModsUi() {
   on($('#la40-stroke'), 'keydown', (e) => {
     if (e.key === 'Enter') calculateLa40Modifications();
   });
+
+  const cycleInputs = ['#la40-cycle-speed', '#la40-cycle-count'];
+  cycleInputs.forEach((sel) => {
+    on($(sel), 'input', () => updateLa40CycleDisplay(false));
+    on($(sel), 'keydown', (e) => {
+      if (e.key === 'Enter') updateLa40CycleDisplay(false);
+    });
+  });
+  on($('#la40-cycle-dwell'), 'input', () => updateLa40CycleDisplay(true));
+  on($('#la40-cycle-dwell'), 'keydown', (e) => {
+    if (e.key === 'Enter') updateLa40CycleDisplay(true);
+  });
+  on($('#la40-cycle-duty'), 'change', () => updateLa40CycleDisplay(false));
+}
+
+function parseCycleInput(raw, { allowZero = false } = {}) {
+  const cleaned = String(raw || '').trim().replace(',', '.');
+  const value = Number(cleaned);
+  if (!Number.isFinite(value) || value < 0) return null;
+  if (!allowZero && value <= 0) return null;
+  return value;
+}
+
+function getLa40CycleDutyFraction(timeToExtendS) {
+  const dutySelect = $('#la40-cycle-duty');
+  const dwellInput = $('#la40-cycle-dwell');
+
+  if (dutySelect?.value !== 'custom') {
+    const fraction = Number(dutySelect?.value);
+    if (Number.isFinite(fraction) && fraction > 0) return fraction;
+  }
+
+  const dwell = parseCycleInput(dwellInput?.value, { allowZero: true });
+  if (dwell == null) return null;
+  return dutyFractionFromDwell(timeToExtendS, dwell);
+}
+
+function syncLa40DutySelectFromFraction(fraction) {
+  const dutySelect = $('#la40-cycle-duty');
+  if (!dutySelect) return;
+
+  const preset = matchDutyPreset(fraction);
+  dutySelect.value = preset != null ? String(preset) : 'custom';
+}
+
+function updateLa40CycleDisplay(fromDwellInput = false) {
+  const cycleCard = $('#la40-cycle-times');
+  if (!cycleCard || la40CycleStrokeMm == null) return;
+
+  const speed = parseCycleInput($('#la40-cycle-speed')?.value);
+  const cycleCount = parseCycleInput($('#la40-cycle-count')?.value);
+  const dwellInput = $('#la40-cycle-dwell');
+  const dutySelect = $('#la40-cycle-duty');
+
+  if (!speed || !cycleCount) {
+    $('#la40-cycle-extend') && ($('#la40-cycle-extend').textContent = '—');
+    $('#la40-cycle-duty-pct') && ($('#la40-cycle-duty-pct').textContent = '—');
+    $('#la40-cycle-days') && ($('#la40-cycle-days').textContent = '—');
+    return;
+  }
+
+  const timeToExtendS = la40CycleStrokeMm / speed;
+
+  if (fromDwellInput && dwellInput) {
+    const dwell = parseCycleInput(dwellInput.value, { allowZero: true });
+    if (dwell != null) {
+      syncLa40DutySelectFromFraction(dutyFractionFromDwell(timeToExtendS, dwell));
+    }
+  } else if (dutySelect?.value !== 'custom' && dwellInput) {
+    const fraction = Number(dutySelect.value);
+    if (Number.isFinite(fraction)) {
+      dwellInput.value = formatLa40CycleSeconds(dwellFromDutyFraction(timeToExtendS, fraction));
+    }
+  }
+
+  const dutyFraction = getLa40CycleDutyFraction(timeToExtendS);
+  if (dutyFraction == null || dutyFraction <= 0 || dutyFraction > 1) {
+    $('#la40-cycle-extend') && ($('#la40-cycle-extend').textContent = `${formatLa40CycleSeconds(timeToExtendS)} s`);
+    $('#la40-cycle-duty-pct') && ($('#la40-cycle-duty-pct').textContent = '—');
+    $('#la40-cycle-days') && ($('#la40-cycle-days').textContent = '—');
+    return;
+  }
+
+  const scenario = calcLa40CycleScenario(la40CycleStrokeMm, {
+    strokeSpeedMmS: speed,
+    cycleCount,
+    dutyFraction,
+  });
+
+  const extendEl = $('#la40-cycle-extend');
+  const dutyPctEl = $('#la40-cycle-duty-pct');
+  const daysEl = $('#la40-cycle-days');
+  const tableBody = $('#la40-cycle-table-body');
+
+  if (extendEl) extendEl.textContent = `${formatLa40CycleSeconds(scenario.timeToExtendS)} s`;
+  if (dutyPctEl) dutyPctEl.textContent = `${scenario.dutyPercent.toFixed(1)}%`;
+  if (daysEl) {
+    daysEl.textContent = `${formatLa40CycleDays(scenario.daysToComplete)} days (${scenario.cycleCount} cycles)`;
+  }
+
+  if (tableBody) {
+    const table = calcLa40CycleTimes(la40CycleStrokeMm, { strokeSpeedMmS: speed, cycleCount });
+    tableBody.innerHTML = table.rows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.label)}</td>
+        <td>${formatLa40CycleSeconds(row.dwellTimeS)}</td>
+        <td>${formatLa40CycleDays(row.daysToComplete)}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+function showLa40CycleCard(strokeMm) {
+  la40CycleStrokeMm = strokeMm;
+  $('#la40-cycle-times')?.classList.remove('hidden');
+  updateLa40CycleDisplay(false);
 }
 
 function calculateLa40Modifications() {
@@ -441,13 +565,23 @@ function calculateLa40Modifications() {
 
   if (!install || !stroke) {
     showToast('Enter valid install and stroke values in mm.');
+    la40CycleStrokeMm = null;
     $('#la40-mods-summary')?.classList.add('hidden');
+    $('#la40-cycle-times')?.classList.add('hidden');
     $('#la40-components')?.classList.add('hidden');
     return;
   }
 
   const result = calcLa40Modifications(install, stroke);
   renderLa40Modifications(result);
+}
+
+function formatLa40CycleSeconds(value) {
+  return Number(value.toFixed(1)).toString();
+}
+
+function formatLa40CycleDays(value) {
+  return value.toFixed(2);
 }
 
 function renderLa40Modifications(result) {
@@ -457,6 +591,8 @@ function renderLa40Modifications(result) {
 
   if (fullyExtended) fullyExtended.textContent = `${result.fullyExtendedMm} mm`;
   summary?.classList.remove('hidden');
+
+  showLa40CycleCard(result.strokeMm);
 
   if (componentsEl) {
     componentsEl.innerHTML = LA40_COMPONENTS.map((comp) => {
@@ -507,7 +643,7 @@ function initBarBendingUi() {
 
   window.addEventListener('resize', () => {
     if (!$('#view-bar-bend')?.classList.contains('hidden') && lastBarBendingResult) {
-      renderBarBendingDiagram($('#bar-bend-diagram'), lastBarBendingResult);
+      scheduleBarDiagramRender(lastBarBendingResult);
     }
   });
 
@@ -627,6 +763,24 @@ function readBarBendingInputs() {
   return { flanges, barSize: Number(barSize), foldDirections: barFoldDirections };
 }
 
+function scheduleBarDiagramRender(result) {
+  const preview = $('#bar-bend-preview-wrap');
+  const diagram = $('#bar-bend-diagram');
+
+  if (!result) {
+    preview?.classList.add('hidden');
+    if (diagram) diagram.innerHTML = '';
+    return;
+  }
+
+  preview?.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      renderBarBendingDiagram(diagram, result);
+    });
+  });
+}
+
 function calculateBarBending() {
   const { flanges, barSize, foldDirections } = readBarBendingInputs();
   const hasValue = flanges.some((f) => f > 0);
@@ -634,6 +788,7 @@ function calculateBarBending() {
   if (!hasValue) {
     lastBarBendingResult = null;
     $('#bar-bend-results')?.classList.add('hidden');
+    scheduleBarDiagramRender(null);
     return;
   }
 
@@ -648,7 +803,6 @@ function renderBarBendingResults(result) {
   const cutBarLabel = $('#bar-cut-bar-label');
   const cutAll = $('#bar-cut-all');
   const backstopList = $('#bar-backstop-list');
-  const diagram = $('#bar-bend-diagram');
 
   if (cutPrimary) cutPrimary.textContent = `${result.cutLength} mm`;
   if (cutBarLabel) cutBarLabel.textContent = result.bar.label;
@@ -679,9 +833,7 @@ function renderBarBendingResults(result) {
   }
 
   wrap?.classList.remove('hidden');
-  requestAnimationFrame(() => {
-    renderBarBendingDiagram(diagram, result);
-  });
+  scheduleBarDiagramRender(result);
 }
 
 function fmtBar(n) {
