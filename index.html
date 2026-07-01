@@ -21,7 +21,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <div>
         <h1>LINAK Actuator Toolkit</h1>
-        <p class="subtitle">Label scanner · LA40 mods · bar bending · test weights</p>
+        <p class="subtitle">Label scanner · LA40 mods · KA30 mods · bar bending · test weights</p>
       </div>
     </div>
   </header>
@@ -203,6 +203,37 @@
     </section>
 
     <!-- BAR BENDING -->
+    <section id="view-ka30-mods" class="view hidden">
+      <div class="card la40-calc-card">
+        <div class="card-head">
+          <h2>KA30 modifications</h2>
+          <p class="card-desc">Enter desired install and stroke to get KA30 component cut lengths.</p>
+        </div>
+
+        <div class="la40-input-grid">
+          <div>
+            <label class="field-label" for="ka30-install">Desired install (mm)</label>
+            <input type="text" id="ka30-install" inputmode="decimal" placeholder="e.g. 376.5" autocomplete="off" />
+          </div>
+          <div>
+            <label class="field-label" for="ka30-stroke">Stroke (mm)</label>
+            <input type="text" id="ka30-stroke" inputmode="decimal" placeholder="e.g. 176.5" autocomplete="off" />
+          </div>
+        </div>
+        <button type="button" id="ka30-mods-calc-btn" class="btn primary full">Calculate components</button>
+
+        <div id="ka30-mods-summary" class="la40-summary hidden">
+          <div class="la40-summary-item la40-summary-item-wide">
+            <span class="la40-summary-label">Fully extended</span>
+            <span id="ka30-fully-extended" class="la40-summary-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="ka30-components" class="la40-components hidden"></div>
+    </section>
+
+    <!-- BAR BENDING -->
     <section id="view-bar-bend" class="view hidden">
       <div class="card">
         <div class="card-head">
@@ -294,6 +325,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg>
       <span>LA40</span>
     </button>
+    <button type="button" class="nav-btn" data-view="ka30-mods">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"/><path d="M7 8 3 12l4 4"/><path d="m17 8 4 4-4 4"/></svg>
+      <span>KA30</span>
+    </button>
     <button type="button" class="nav-btn" data-view="bar-bend">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V8"/><path d="M12 20V12"/><path d="M16 16V10"/></svg>
       <span>Bend</span>
@@ -319,7 +354,7 @@
 
   <script>
     (function () {
-      var SW_KEY = 'linak-sw-reset-v24';
+      var SW_KEY = 'linak-sw-reset-v25';
       function showBootError(msg) {
         var box = document.getElementById('boot-error');
         var msgEl = document.getElementById('boot-error-msg');
@@ -349,7 +384,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=34').catch(function (err) {
+    import('./js/app.js?v=35').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

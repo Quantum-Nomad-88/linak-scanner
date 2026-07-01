@@ -17,6 +17,7 @@ import {
   matchDutyPreset,
   LA40_COMPONENTS,
 } from './la40-modifications.js';
+import { calcKa30Modifications, KA30_COMPONENTS } from './ka30-modifications.js';
 import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 
@@ -400,6 +401,12 @@ function renderResults(specs) {
     if (installInput) installInput.value = String(specs.installLengthMm);
     if (strokeInput) strokeInput.value = String(specs.strokeMm);
   }
+  if (specs.model === 'KA30' && specs.installLengthMm != null && specs.strokeMm != null) {
+    const installInput = $('#ka30-install');
+    const strokeInput = $('#ka30-stroke');
+    if (installInput) installInput.value = String(specs.installLengthMm);
+    if (strokeInput) strokeInput.value = String(specs.strokeMm);
+  }
 
   showView('scan');
 }
@@ -620,6 +627,59 @@ function renderLa40Modifications(result) {
               <p class="la40-component-note">${escapeHtml(comp.note)}</p>
             </div>
             <img class="la40-component-photo" src="${comp.image}" alt="${escapeHtml(comp.name)}" loading="lazy" />
+          </div>
+        </article>
+      `;
+    }).join('');
+    componentsEl.classList.remove('hidden');
+  }
+}
+
+// --- KA30 modifications ---
+function initKa30ModsUi() {
+  on($('#ka30-mods-calc-btn'), 'click', calculateKa30Modifications);
+  on($('#ka30-install'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateKa30Modifications();
+  });
+  on($('#ka30-stroke'), 'keydown', (e) => {
+    if (e.key === 'Enter') calculateKa30Modifications();
+  });
+}
+
+function calculateKa30Modifications() {
+  const install = parseWeightInput($('#ka30-install')?.value);
+  const stroke = parseWeightInput($('#ka30-stroke')?.value);
+
+  if (!install || !stroke) {
+    showToast('Enter valid KA30 install and stroke values in mm.');
+    $('#ka30-mods-summary')?.classList.add('hidden');
+    $('#ka30-components')?.classList.add('hidden');
+    return;
+  }
+
+  const result = calcKa30Modifications(install, stroke);
+  renderKa30Modifications(result);
+}
+
+function renderKa30Modifications(result) {
+  const summary = $('#ka30-mods-summary');
+  const fullyExtended = $('#ka30-fully-extended');
+  const componentsEl = $('#ka30-components');
+
+  if (fullyExtended) fullyExtended.textContent = `${result.fullyExtendedMm} mm`;
+  summary?.classList.remove('hidden');
+
+  if (componentsEl) {
+    componentsEl.innerHTML = KA30_COMPONENTS.map((comp) => {
+      const length = result[comp.lengthKey];
+      return `
+        <article class="card la40-component-card">
+          <div class="la40-component-layout">
+            <div class="la40-component-info">
+              <h3>${escapeHtml(comp.name)}</h3>
+              <p class="la40-component-length">${escapeHtml(String(length))} <span>mm</span></p>
+              <p class="la40-component-note">${escapeHtml(comp.note)}</p>
+            </div>
           </div>
         </article>
       `;
@@ -973,6 +1033,7 @@ function bootApp() {
     initOcrUi();
     initResultsUi();
     initLa40ModsUi();
+    initKa30ModsUi();
     initBarBendingUi();
     initWeightCalculatorUi();
     initServiceWorker();
