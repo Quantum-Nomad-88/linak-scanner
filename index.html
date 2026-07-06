@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=30" />
+  <link rel="stylesheet" href="css/app.css?v=32" />
 </head>
 <body>
   <header class="header">
@@ -21,7 +21,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <div>
         <h1>LINAK Actuator Toolkit</h1>
-        <p class="subtitle">Label scanner · LA40 mods · KA30 mods · bar bending · test weights</p>
+        <p class="subtitle">Label scanner · test setup · LA40 · KA30 · bar bending · weights</p>
       </div>
     </div>
   </header>
@@ -286,6 +286,48 @@
       </div>
     </section>
 
+    <!-- TEST SETUP WIZARD -->
+    <section id="view-test-setup" class="view hidden">
+      <div class="card setup-wizard-card">
+        <div class="card-head">
+          <h2>Test setup</h2>
+          <p class="card-desc">Guided checklist to capture setup details and required photos before testing starts.</p>
+        </div>
+
+        <div id="setup-progress" class="setup-progress" aria-label="Setup progress"></div>
+        <div id="setup-step-content" class="setup-step-content"></div>
+
+        <p id="setup-validation-msg" class="setup-validation-msg" role="status"></p>
+
+        <div class="setup-nav-row">
+          <button type="button" id="setup-back-btn" class="btn" disabled>Back</button>
+          <button type="button" id="setup-next-btn" class="btn primary">Continue</button>
+        </div>
+      </div>
+
+      <div id="setup-summary-card" class="card hidden">
+        <div class="card-head">
+          <h2>Setup summary</h2>
+          <p class="card-desc">Review the recorded setup before leaving this page.</p>
+        </div>
+        <div id="setup-summary-body"></div>
+        <div class="btn-row">
+          <button type="button" id="setup-share-btn" class="btn primary">Share summary</button>
+          <button type="button" id="setup-new-btn" class="btn">New setup</button>
+        </div>
+      </div>
+
+      <input type="file" id="setup-photo-input" accept="image/*" capture="environment" hidden />
+
+      <div id="setup-camera-wrap" class="setup-camera-wrap hidden">
+        <video id="setup-camera-video" class="camera-source" playsinline autoplay muted></video>
+        <div class="setup-camera-actions">
+          <button type="button" id="setup-capture-btn" class="btn primary">Capture photo</button>
+          <button type="button" id="setup-cancel-camera-btn" class="btn">Cancel</button>
+        </div>
+      </div>
+    </section>
+
     <!-- WEIGHT DISTRIBUTION -->
     <section id="view-weights" class="view hidden">
       <div class="card">
@@ -320,6 +362,10 @@
     <button type="button" class="nav-btn active" data-view="scan">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a2 2 0 0 1 2-2h3"/><path d="M20 7V5a2 2 0 0 0-2-2h-3"/><path d="M4 17v2a2 2 0 0 0 2 2h3"/><path d="M20 17v2a2 2 0 0 1-2 2h-3"/><rect x="7" y="9" width="10" height="6" rx="1"/></svg>
       <span>Scan</span>
+    </button>
+    <button type="button" class="nav-btn" data-view="test-setup">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Setup</span>
     </button>
     <button type="button" class="nav-btn" data-view="la40-mods">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg>
@@ -384,7 +430,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=35').catch(function (err) {
+    import('./js/app.js?v=37').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

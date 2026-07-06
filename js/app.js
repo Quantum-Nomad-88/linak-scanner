@@ -20,6 +20,14 @@ import {
 import { calcKa30Modifications, KA30_COMPONENTS } from './ka30-modifications.js';
 import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
+import { initTestSetupWizard } from './test-setup-wizard.js';
+import {
+  parseWeightInput,
+  formatKg,
+  formatPlates,
+  getBedDistribution,
+  getSeatDistribution,
+} from './weight-distribution.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -915,6 +923,30 @@ function fmtBar(n) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
+// --- Test setup wizard ---
+function openWeightsCalculator(productType, totalKg) {
+  if (productType === 'Chair') {
+    const input = $('#seat-total-weight');
+    if (input && totalKg) input.value = String(totalKg);
+    calculateSeatDistribution();
+    return;
+  }
+  const input = $('#bed-total-weight');
+  if (input && totalKg) input.value = String(totalKg);
+  calculateBedDistribution();
+}
+
+function initTestSetupWizardUi() {
+  initTestSetupWizard({
+    $,
+    on,
+    showToast,
+    escapeHtml,
+    showView,
+    openWeightsCalculator,
+  });
+}
+
 // --- Weight calculators ---
 function initWeightCalculatorUi() {
   on($('#bed-calc-btn'), 'click', calculateBedDistribution);
@@ -926,21 +958,6 @@ function initWeightCalculatorUi() {
   on($('#seat-total-weight'), 'keydown', (e) => {
     if (e.key === 'Enter') calculateSeatDistribution();
   });
-}
-
-function parseWeightInput(raw) {
-  const cleaned = String(raw || '').trim().replace(',', '.');
-  const value = Number(cleaned);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  return value;
-}
-
-function formatKg(value) {
-  return `${value.toFixed(2)} kg`;
-}
-
-function formatPlates(valueKg) {
-  return `${(valueKg / 5).toFixed(2)} × 5 kg plates`;
 }
 
 function renderWeightCards(targetEl, rows) {
@@ -975,11 +992,7 @@ function calculateBedDistribution() {
     return;
   }
 
-  renderWeightCards(results, [
-    { label: 'Backrest', pct: '45%', kg: totalKg * 0.45 },
-    { label: 'Centre', pct: '25%', kg: totalKg * 0.25 },
-    { label: 'Legrest', pct: '30%', kg: totalKg * 0.30 },
-  ]);
+  renderWeightCards(results, getBedDistribution(totalKg));
 }
 
 function calculateSeatDistribution() {
@@ -993,11 +1006,7 @@ function calculateSeatDistribution() {
     return;
   }
 
-  renderWeightCards(results, [
-    { label: 'Backrest', pct: '58.75%', kg: totalKg * 0.5875 },
-    { label: 'Seat', pct: '24.38%', kg: totalKg * 0.2438 },
-    { label: 'Legrest', pct: '16.88%', kg: totalKg * 0.1688 },
-  ]);
+  renderWeightCards(results, getSeatDistribution(totalKg));
 }
 
 // --- Helpers ---
@@ -1036,6 +1045,7 @@ function bootApp() {
     initKa30ModsUi();
     initBarBendingUi();
     initWeightCalculatorUi();
+    initTestSetupWizardUi();
     initServiceWorker();
     showView('scan');
   } catch (err) {
