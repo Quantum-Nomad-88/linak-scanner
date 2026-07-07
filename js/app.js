@@ -22,7 +22,7 @@ import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 import { initTestSetupWizard } from './test-setup-wizard.js';
 import { initFileCloudConfig } from './cloud-config.js';
-import { initCloudSyncUi, uploadSetupRecord } from './cloud-sync.js';
+import { initCloudSyncUi, uploadSetupRecord, saveCloudConfig } from './cloud-sync.js';
 import {
   parseWeightInput,
   formatKg,
@@ -1046,9 +1046,32 @@ function initServiceWorker() {
   }
 }
 
+function applyCloudBootstrapFromHash() {
+  const marker = '#setup-cloud=';
+  if (!location.hash.startsWith(marker)) return false;
+
+  try {
+    const json = atob(decodeURIComponent(location.hash.slice(marker.length)));
+    const payload = JSON.parse(json);
+    saveCloudConfig({
+      supabaseUrl: payload.supabaseUrl,
+      supabaseAnonKey: payload.supabaseAnonKey,
+      teamAccessCode: payload.teamAccessCode,
+      webhookUrl: payload.webhookUrl || '',
+    });
+    history.replaceState(null, '', location.pathname + location.search);
+    showToast('Cloud settings applied on this device.');
+    return true;
+  } catch {
+    showToast('Could not apply cloud setup link.');
+    return false;
+  }
+}
+
 function bootApp() {
   initFileCloudConfig()
     .then(() => {
+      applyCloudBootstrapFromHash();
       initNavigation();
       initCameraUi();
       initOcrUi();

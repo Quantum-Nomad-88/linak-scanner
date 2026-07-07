@@ -302,5 +302,12 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
   loadConfigIntoForm();
   renderRecords();
 
+  const file = getFileCloudConfig();
+  if (file.supabaseUrl && file.supabaseAnonKey && file.teamAccessCode && !localStorage.getItem(CONFIG_KEY)) {
+    saveCloudConfig(file);
+    loadConfigIntoForm();
+    renderRecords();
+  }
+
   return { refreshRecords: renderRecords, renderStatus };
 }

@@ -1,4 +1,6 @@
 js/cloud-config.local.js
+supabase/bootstrap-ready.sql
+tmp-bucket.json
 Thumbs.db
 *.log
 .idea/
