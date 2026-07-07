@@ -195,7 +195,7 @@ export function buildSetupSummary(state) {
   ].join('\n');
 }
 
-export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, openWeightsCalculator }) {
+export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, openWeightsCalculator, uploadSetupRecord, refreshCloudRecords }) {
   const progressEl = $('#setup-progress');
   const contentEl = $('#setup-step-content');
   const backBtn = $('#setup-back-btn');
@@ -820,8 +820,24 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
 
   async function autoSaveRecord() {
     try {
-      await saveSetupRecord(state);
-      showToast('ZIP saved with Word report and photos — open on your laptop or upload to OneDrive.');
+      const { uploadResult } = await saveSetupRecord(state, {
+        download: true,
+        upload: true,
+        uploadFn: uploadSetupRecord,
+      });
+
+      if (uploadResult?.uploaded) {
+        refreshCloudRecords?.();
+        const destination = uploadResult.via === 'webhook'
+          ? 'your OneDrive folder'
+          : 'the server';
+        showToast(`Uploaded to ${destination}. Open the app on your PC to download.`);
+        setValidation(`Uploaded to ${destination}. Open Setup → Server records on your laptop.`, false);
+        return;
+      }
+
+      showToast('ZIP saved on this device. Add cloud settings above to sync to your PC.');
+      setValidation('Saved on this device — configure cloud upload to access from your PC.', false);
     } catch {
       try {
         await downloadSetupWord(state);
@@ -866,8 +882,15 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
   }
 
   function saveZipRecord() {
-    saveSetupRecord(state)
-      .then(() => showToast('ZIP saved — includes photos folder and Word report.'))
+    saveSetupRecord(state, { download: true, upload: true, uploadFn: uploadSetupRecord })
+      .then(({ uploadResult }) => {
+        if (uploadResult?.uploaded) {
+          refreshCloudRecords?.();
+          showToast('ZIP saved and uploaded to the server.');
+        } else {
+          showToast('ZIP saved on this device.');
+        }
+      })
       .catch(() => showToast('Could not save ZIP file.'));
   }
 

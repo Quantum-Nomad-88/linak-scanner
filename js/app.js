@@ -21,6 +21,7 @@ import { calcKa30Modifications, KA30_COMPONENTS } from './ka30-modifications.js'
 import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 import { initTestSetupWizard } from './test-setup-wizard.js';
+import { initCloudSyncUi, uploadSetupRecord } from './cloud-sync.js';
 import {
   parseWeightInput,
   formatKg,
@@ -923,6 +924,13 @@ function fmtBar(n) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
+let cloudSyncUi = null;
+
+// --- Cloud sync ---
+function initCloudSyncUiWrap() {
+  cloudSyncUi = initCloudSyncUi({ $, on, showToast, escapeHtml });
+}
+
 // --- Test setup wizard ---
 function openWeightsCalculator(productType, totalKg) {
   if (productType === 'Chair') {
@@ -944,6 +952,8 @@ function initTestSetupWizardUi() {
     escapeHtml,
     showView,
     openWeightsCalculator,
+    uploadSetupRecord,
+    refreshCloudRecords: () => cloudSyncUi?.refreshRecords?.(),
   });
 }
 
@@ -1045,6 +1055,7 @@ function bootApp() {
     initKa30ModsUi();
     initBarBendingUi();
     initWeightCalculatorUi();
+    initCloudSyncUiWrap();
     initTestSetupWizardUi();
     initServiceWorker();
     showView('scan');

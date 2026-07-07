@@ -184,7 +184,7 @@ function loadJSZip() {
   return jsZipPromise;
 }
 
-export async function downloadSetupZip(state) {
+export async function buildSetupZipBlob(state) {
   const JSZip = await loadJSZip();
   const zip = new JSZip();
   const record = buildSetupRecord(state);
@@ -198,6 +198,11 @@ export async function downloadSetupZip(state) {
   addPhotosToZip(zip, 'fan', state.coolingFanPhotos);
 
   const blob = await zip.generateAsync({ type: 'blob' });
+  return { blob, filename, record };
+}
+
+export async function downloadSetupZip(state) {
+  const { blob, filename } = await buildSetupZipBlob(state);
   await shareOrDownloadFile(blob, filename, 'Test setup record');
   return filename;
 }
@@ -214,6 +219,17 @@ export function downloadSetupJson(state) {
   downloadBlob(blob, buildSetupFilename(state, 'json'));
 }
 
-export async function saveSetupRecord(state) {
-  return downloadSetupZip(state);
+export async function saveSetupRecord(state, { download = true, upload = true, uploadFn } = {}) {
+  const { blob, filename, record } = await buildSetupZipBlob(state);
+
+  let uploadResult = { uploaded: false, reason: 'skipped' };
+  if (upload && uploadFn) {
+    uploadResult = await uploadFn(blob, filename, record);
+  }
+
+  if (download) {
+    await shareOrDownloadFile(blob, filename, 'Test setup record');
+  }
+
+  return { filename, uploadResult };
 }

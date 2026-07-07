@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=34" />
+  <link rel="stylesheet" href="css/app.css?v=35" />
 </head>
 <body>
   <header class="header">
@@ -288,6 +288,61 @@
 
     <!-- TEST SETUP WIZARD -->
     <section id="view-test-setup" class="view hidden">
+      <div class="card cloud-settings-card">
+        <div class="card-head">
+          <h2>Cloud storage</h2>
+          <p class="card-desc">Upload setup files to a server so you can open them on your PC without transferring from your phone.</p>
+        </div>
+        <p id="cloud-config-status" class="cloud-config-status">Cloud upload not configured</p>
+
+        <details class="cloud-setup-help">
+          <summary>One-time setup (Supabase — free)</summary>
+          <ol class="cloud-setup-steps">
+            <li>Create a free project at <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a></li>
+            <li>Storage → New bucket → name it <code>test-setup-records</code> → set <strong>Public bucket</strong></li>
+            <li>SQL Editor → run:
+              <pre>create table setup_records (
+  id text primary key,
+  product_type text,
+  test_type text,
+  testing_started_at text,
+  file_path text,
+  created_at timestamptz default now()
+);
+alter table setup_records enable row level security;
+create policy "anon_all" on setup_records for all using (true) with check (true);
+
+create policy "public_read" on storage.objects
+  for select using (bucket_id = 'test-setup-records');
+create policy "anon_upload" on storage.objects
+  for insert with check (bucket_id = 'test-setup-records');</pre>
+            </li>
+            <li>Project Settings → API → copy <strong>Project URL</strong> and <strong>anon public</strong> key below</li>
+          </ol>
+          <p class="card-desc">Alternative: paste a Power Automate / webhook URL to save files straight into OneDrive.</p>
+        </details>
+
+        <label class="field-label" for="cloud-supabase-url">Supabase project URL</label>
+        <input type="url" id="cloud-supabase-url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
+
+        <label class="field-label" for="cloud-supabase-key">Supabase anon key</label>
+        <input type="password" id="cloud-supabase-key" placeholder="eyJ..." autocomplete="off" />
+
+        <label class="field-label" for="cloud-webhook-url">OneDrive webhook URL (optional)</label>
+        <input type="url" id="cloud-webhook-url" placeholder="https://... (Power Automate HTTP trigger)" autocomplete="off" />
+
+        <button type="button" id="cloud-save-config-btn" class="btn primary full">Save cloud settings</button>
+      </div>
+
+      <div id="cloud-records-wrap" class="card hidden">
+        <div class="card-head">
+          <h2>Server records</h2>
+          <p class="card-desc">Open this same app on your PC to download setup files from the server.</p>
+        </div>
+        <button type="button" id="cloud-refresh-records-btn" class="btn full">Refresh list</button>
+        <div id="cloud-records-list" class="cloud-records-list"></div>
+      </div>
+
       <div class="card setup-wizard-card">
         <div class="card-head">
           <h2>Test setup</h2>
@@ -438,7 +493,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=40').catch(function (err) {
+    import('./js/app.js?v=41').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
