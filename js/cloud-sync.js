@@ -1,4 +1,4 @@
-import { CLOUD_CONFIG } from './cloud-config.js';
+import { getFileCloudConfig } from './cloud-config.js';
 
 const CONFIG_KEY = 'linak_cloud_config_v1';
 const BUCKET = 'test-setup-records';
@@ -6,13 +6,15 @@ const BUCKET = 'test-setup-records';
 export function getCloudConfig() {
   try {
     const stored = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+    const file = getFileCloudConfig();
     return {
-      supabaseUrl: stored.supabaseUrl || CLOUD_CONFIG.supabaseUrl || '',
-      supabaseAnonKey: stored.supabaseAnonKey || CLOUD_CONFIG.supabaseAnonKey || '',
-      webhookUrl: stored.webhookUrl || CLOUD_CONFIG.webhookUrl || '',
+      supabaseUrl: stored.supabaseUrl || file.supabaseUrl || '',
+      supabaseAnonKey: stored.supabaseAnonKey || file.supabaseAnonKey || '',
+      webhookUrl: stored.webhookUrl || file.webhookUrl || '',
+      teamAccessCode: stored.teamAccessCode || file.teamAccessCode || '',
     };
   } catch {
-    return { supabaseUrl: '', supabaseAnonKey: '', webhookUrl: '' };
+    return { supabaseUrl: '', supabaseAnonKey: '', webhookUrl: '', teamAccessCode: '' };
   }
 }
 
@@ -21,26 +23,30 @@ export function saveCloudConfig(config) {
     supabaseUrl: String(config.supabaseUrl || '').trim(),
     supabaseAnonKey: String(config.supabaseAnonKey || '').trim(),
     webhookUrl: String(config.webhookUrl || '').trim(),
+    teamAccessCode: String(config.teamAccessCode || '').trim(),
   }));
+}
+
+export function clearCloudConfig() {
+  localStorage.removeItem(CONFIG_KEY);
 }
 
 export function isCloudConfigured() {
   const config = getCloudConfig();
-  return Boolean(
-    config.webhookUrl ||
-    (config.supabaseUrl && config.supabaseAnonKey)
-  );
+  if (config.webhookUrl) return true;
+  return Boolean(config.supabaseUrl && config.supabaseAnonKey && config.teamAccessCode);
 }
 
 export function isSupabaseConfigured() {
   const config = getCloudConfig();
-  return Boolean(config.supabaseUrl && config.supabaseAnonKey);
+  return Boolean(config.supabaseUrl && config.supabaseAnonKey && config.teamAccessCode);
 }
 
 function supabaseHeaders(config, extra = {}) {
   return {
     apikey: config.supabaseAnonKey,
     Authorization: `Bearer ${config.supabaseAnonKey}`,
+    'x-team-access': config.teamAccessCode,
     ...extra,
   };
 }
@@ -111,6 +117,10 @@ async function uploadViaSupabase(config, blob, filename, record) {
 export async function uploadSetupRecord(blob, filename, record) {
   const config = getCloudConfig();
 
+  if (!config.teamAccessCode && config.supabaseUrl) {
+    throw new Error('Team access code is required for cloud upload.');
+  }
+
   if (config.webhookUrl) {
     return uploadViaWebhook(config, blob, filename, record);
   }
@@ -138,17 +148,42 @@ export async function listSetupRecords() {
   return res.json();
 }
 
-export function getRecordDownloadUrl(filePath) {
+export async function getSignedDownloadUrl(filePath) {
   const config = getCloudConfig();
-  if (!config.supabaseUrl || !filePath) return '';
-  return `${config.supabaseUrl}/storage/v1/object/public/${BUCKET}/${filePath}`;
+  if (!config.supabaseUrl || !filePath || !config.teamAccessCode) return '';
+
+  const res = await fetch(
+    `${config.supabaseUrl}/storage/v1/object/sign/${BUCKET}/${filePath}`,
+    {
+      method: 'POST',
+      headers: supabaseHeaders(config, {
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify({ expiresIn: 3600 }),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Could not create download link (${res.status})`);
+  }
+
+  const data = await res.json();
+  if (data.signedURL) {
+    return data.signedURL.startsWith('http')
+      ? data.signedURL
+      : `${config.supabaseUrl}/storage/v1${data.signedURL}`;
+  }
+  if (data.signedUrl) return data.signedUrl;
+  return '';
 }
 
 export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
   const urlInput = $('#cloud-supabase-url');
   const keyInput = $('#cloud-supabase-key');
+  const teamInput = $('#cloud-team-code');
   const webhookInput = $('#cloud-webhook-url');
   const saveBtn = $('#cloud-save-config-btn');
+  const clearBtn = $('#cloud-clear-config-btn');
   const statusEl = $('#cloud-config-status');
   const recordsWrap = $('#cloud-records-wrap');
   const recordsList = $('#cloud-records-list');
@@ -158,11 +193,14 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     if (!statusEl) return;
     const config = getCloudConfig();
     if (config.webhookUrl) {
-      statusEl.textContent = 'Cloud upload: OneDrive / webhook configured';
+      statusEl.textContent = 'Cloud upload: webhook configured (keys stored on this device only)';
       statusEl.className = 'cloud-config-status cloud-config-status-ok';
-    } else if (config.supabaseUrl && config.supabaseAnonKey) {
-      statusEl.textContent = 'Cloud upload: Supabase configured';
+    } else if (isSupabaseConfigured()) {
+      statusEl.textContent = 'Cloud upload: Supabase secured with team access code';
       statusEl.className = 'cloud-config-status cloud-config-status-ok';
+    } else if (config.supabaseUrl || config.supabaseAnonKey) {
+      statusEl.textContent = 'Add your team access code to enable uploads';
+      statusEl.className = 'cloud-config-status cloud-config-status-error';
     } else {
       statusEl.textContent = 'Cloud upload not configured — files only save on this device';
       statusEl.className = 'cloud-config-status';
@@ -173,6 +211,7 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     const config = getCloudConfig();
     if (urlInput) urlInput.value = config.supabaseUrl;
     if (keyInput) keyInput.value = config.supabaseAnonKey;
+    if (teamInput) teamInput.value = config.teamAccessCode;
     if (webhookInput) webhookInput.value = config.webhookUrl;
     renderStatus();
   }
@@ -195,20 +234,41 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
         return;
       }
 
-      recordsList.innerHTML = rows.map((row) => {
-        const url = getRecordDownloadUrl(row.file_path);
+      recordsList.innerHTML = '';
+      for (const row of rows) {
+        const card = document.createElement('div');
+        card.className = 'cloud-record-row';
         const when = row.created_at ? new Date(row.created_at).toLocaleString() : '—';
-        return `
-          <div class="cloud-record-row">
-            <div>
-              <div class="cloud-record-id">${escapeHtml(row.id)}</div>
-              <div class="cloud-record-meta">${escapeHtml(row.product_type || '—')} · ${escapeHtml(row.test_type || '—')}</div>
-              <div class="cloud-record-meta">${escapeHtml(when)}</div>
-            </div>
-            ${url ? `<a class="btn primary cloud-record-download" href="${escapeHtml(url)}" download>Download ZIP</a>` : ''}
+        card.innerHTML = `
+          <div>
+            <div class="cloud-record-id">${escapeHtml(row.id)}</div>
+            <div class="cloud-record-meta">${escapeHtml(row.product_type || '—')} · ${escapeHtml(row.test_type || '—')}</div>
+            <div class="cloud-record-meta">${escapeHtml(when)}</div>
           </div>
         `;
-      }).join('');
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn primary cloud-record-download';
+        btn.textContent = 'Download ZIP';
+        btn.addEventListener('click', async () => {
+          try {
+            btn.disabled = true;
+            btn.textContent = 'Preparing…';
+            const url = await getSignedDownloadUrl(row.file_path);
+            if (!url) throw new Error('No download URL');
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (err) {
+            showToast(err.message || 'Download failed');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Download ZIP';
+          }
+        });
+
+        card.appendChild(btn);
+        recordsList.appendChild(card);
+      }
     } catch (err) {
       recordsList.innerHTML = `<p class="card-desc cloud-config-status-error">${escapeHtml(err.message || 'Could not load records')}</p>`;
     }
@@ -218,22 +278,29 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     saveCloudConfig({
       supabaseUrl: urlInput?.value,
       supabaseAnonKey: keyInput?.value,
+      teamAccessCode: teamInput?.value,
       webhookUrl: webhookInput?.value,
     });
     loadConfigIntoForm();
     renderRecords();
-    showToast('Cloud settings saved.');
+    showToast('Cloud settings saved on this device only.');
+  });
+
+  on(clearBtn, 'click', () => {
+    clearCloudConfig();
+    if (urlInput) urlInput.value = '';
+    if (keyInput) keyInput.value = '';
+    if (teamInput) teamInput.value = '';
+    if (webhookInput) webhookInput.value = '';
+    loadConfigIntoForm();
+    renderRecords();
+    showToast('Cloud settings cleared from this device.');
   });
 
   on(refreshBtn, 'click', renderRecords);
 
   loadConfigIntoForm();
   renderRecords();
-
-  if (isCloudConfigured() && !localStorage.getItem(CONFIG_KEY)) {
-    saveCloudConfig(getCloudConfig());
-    loadConfigIntoForm();
-  }
 
   return { refreshRecords: renderRecords, renderStatus };
 }

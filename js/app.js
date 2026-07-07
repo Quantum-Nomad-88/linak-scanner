@@ -21,6 +21,7 @@ import { calcKa30Modifications, KA30_COMPONENTS } from './ka30-modifications.js'
 import { calcBarBending, parseBarNumber, BAR_SIZES } from './bar-bending.js';
 import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 import { initTestSetupWizard } from './test-setup-wizard.js';
+import { initFileCloudConfig } from './cloud-config.js';
 import { initCloudSyncUi, uploadSetupRecord } from './cloud-sync.js';
 import {
   parseWeightInput,
@@ -1046,23 +1047,25 @@ function initServiceWorker() {
 }
 
 function bootApp() {
-  try {
-    initNavigation();
-    initCameraUi();
-    initOcrUi();
-    initResultsUi();
-    initLa40ModsUi();
-    initKa30ModsUi();
-    initBarBendingUi();
-    initWeightCalculatorUi();
-    initCloudSyncUiWrap();
-    initTestSetupWizardUi();
-    initServiceWorker();
-    showView('scan');
-  } catch (err) {
-    console.error('LINAK app init failed:', err);
-    window.__linakShowBootError?.('App init failed: ' + (err.message || 'unknown error'));
-  }
+  initFileCloudConfig()
+    .then(() => {
+      initNavigation();
+      initCameraUi();
+      initOcrUi();
+      initResultsUi();
+      initLa40ModsUi();
+      initKa30ModsUi();
+      initBarBendingUi();
+      initWeightCalculatorUi();
+      initCloudSyncUiWrap();
+      initTestSetupWizardUi();
+      initServiceWorker();
+      showView('scan');
+    })
+    .catch((err) => {
+      console.error('LINAK app init failed:', err);
+      window.__linakShowBootError?.('App init failed: ' + (err.message || 'unknown error'));
+    });
 }
 
 bootApp();

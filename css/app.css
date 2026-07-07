@@ -1645,6 +1645,14 @@ select:focus {
 
 .cloud-record-download {
   flex-shrink: 0;
-  text-decoration: none;
   white-space: nowrap;
+}
+
+.cloud-settings-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cloud-settings-actions .btn {
+  flex: 1;
 }
