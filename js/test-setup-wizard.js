@@ -5,13 +5,18 @@ import {
   getDistributionForProduct,
   formatDistributionSummary,
 } from './weight-distribution.js';
+import { downloadSetupWord, downloadSetupJson, saveSetupRecord } from './setup-export.js';
+import {
+  fileToJpegDataUrl,
+  waitForVideoReady,
+  captureVideoFrame,
+} from './setup-photos.js';
 
 const STORAGE_KEY = 'linak_test_setup_wizard_v1';
 
 export const SETUP_STEPS = [
   { id: 'product', title: 'Bed or chair', short: 'Product' },
   { id: 'test-type', title: 'Type of test', short: 'Test' },
-  { id: 'qnd', title: 'Unofficial QND', short: 'QND' },
   { id: 'cad', title: 'CAD version', short: 'CAD' },
   { id: 'actuators', title: 'Actuators used', short: 'Actuators', photos: 'actuatorPhotos' },
   { id: 'load', title: 'Load applied', short: 'Load', photos: 'loadPhotos' },
@@ -45,7 +50,6 @@ export function createSetupState() {
     productType: '',
     testType: '',
     testTypeOther: '',
-    unofficialQnd: '',
     cadVersion: '',
     actuators: '',
     actuatorPhotos: [],
@@ -69,15 +73,33 @@ export function loadSetupState() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return createSetupState();
-    return { ...createSetupState(), ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    delete parsed._photoCounts;
+    return { ...createSetupState(), ...parsed };
   } catch {
     return createSetupState();
   }
 }
 
 export function saveSetupState(state) {
+  const {
+    actuatorPhotos,
+    loadPhotos,
+    counterPhotos,
+    coolingFanPhotos,
+    ...meta
+  } = state;
+
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...meta,
+      _photoCounts: {
+        actuators: actuatorPhotos?.length || 0,
+        load: loadPhotos?.length || 0,
+        counters: counterPhotos?.length || 0,
+        fan: coolingFanPhotos?.length || 0,
+      },
+    }));
   } catch {
     /* quota exceeded — continue in memory */
   }
@@ -100,10 +122,6 @@ export function validateStep(stepId, state) {
       }
       return ok();
     }
-
-    case 'qnd':
-      if (!state.unofficialQnd.trim()) return fail('Enter the unofficial QND.');
-      return ok();
 
     case 'cad':
       if (!state.cadVersion.trim()) return fail('Enter the CAD version.');
@@ -163,7 +181,6 @@ export function buildSetupSummary(state) {
     `Test setup record`,
     `Product: ${state.productType}`,
     `Test type: ${testLabel}`,
-    `Unofficial QND: ${state.unofficialQnd}`,
     `CAD version: ${state.cadVersion}`,
     `Actuators: ${state.actuators}`,
     `Load applied: ${state.loadApplied}`,
@@ -188,6 +205,9 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
   const summaryBody = $('#setup-summary-body');
   const newSetupBtn = $('#setup-new-btn');
   const shareSetupBtn = $('#setup-share-btn');
+  const saveWordBtn = $('#setup-save-word-btn');
+  const saveZipBtn = $('#setup-save-zip-btn');
+  const saveJsonBtn = $('#setup-save-json-btn');
   const fileInput = $('#setup-photo-input');
   const cameraWrap = $('#setup-camera-wrap');
   const cameraVideo = $('#setup-camera-video');
@@ -198,6 +218,7 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
   let stepIndex = 0;
   let activePhotoKey = null;
   let cameraStream = null;
+  let cameraReady = false;
 
   function persist() {
     saveSetupState(state);
@@ -298,14 +319,6 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
         `;
         break;
       }
-
-      case 'qnd':
-        html += `
-          <p class="card-desc">Record the unofficial QND for traceability.</p>
-          <label class="field-label" for="setup-qnd">Unofficial QND</label>
-          <input type="text" id="setup-qnd" value="${escapeHtml(state.unofficialQnd)}" placeholder="e.g. QND-240315-A" autocomplete="off" />
-        `;
-        break;
 
       case 'cad':
         html += `
@@ -504,9 +517,6 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
         break;
       }
 
-      case 'qnd':
-        bindText('#setup-qnd', 'unofficialQnd');
-        break;
       case 'cad':
         bindText('#setup-cad', 'cadVersion');
         break;
@@ -619,25 +629,49 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
         fileInput?.click();
         return;
       }
+
+      cameraReady = false;
+      if (captureBtn) {
+        captureBtn.disabled = true;
+        captureBtn.textContent = 'Starting camera…';
+      }
+
       cameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
+
+      cameraVideo.setAttribute('playsinline', '');
+      cameraVideo.setAttribute('webkit-playsinline', '');
+      cameraVideo.muted = true;
       cameraVideo.srcObject = cameraStream;
       cameraWrap.classList.remove('hidden');
+
+      await waitForVideoReady(cameraVideo);
+      cameraReady = true;
+      if (captureBtn) {
+        captureBtn.disabled = false;
+        captureBtn.textContent = 'Capture photo';
+      }
     } catch {
       showToast('Could not open camera — use Gallery.');
+      stopSetupCamera();
       fileInput?.click();
     }
   }
 
   function stopSetupCamera() {
+    cameraReady = false;
     if (cameraStream) {
       cameraStream.getTracks().forEach((t) => t.stop());
       cameraStream = null;
     }
     if (cameraVideo) cameraVideo.srcObject = null;
     cameraWrap?.classList.add('hidden');
+    if (captureBtn) {
+      captureBtn.disabled = false;
+      captureBtn.textContent = 'Capture photo';
+    }
   }
 
   function addPhotoFromDataUrl(dataUrl) {
@@ -651,20 +685,25 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
 
   async function processPhotoFile(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => addPhotoFromDataUrl(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      const dataUrl = await fileToJpegDataUrl(file);
+      addPhotoFromDataUrl(dataUrl);
+    } catch {
+      showToast('Could not read that photo — try another image.');
+    }
   }
 
   function captureSetupPhoto() {
-    if (!cameraVideo || !cameraStream) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = cameraVideo.videoWidth;
-    canvas.height = cameraVideo.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(cameraVideo, 0, 0);
-    addPhotoFromDataUrl(canvas.toDataURL('image/jpeg', 0.85));
-    stopSetupCamera();
+    if (!cameraVideo || !cameraStream || !cameraReady) {
+      showToast('Camera not ready — wait a moment and try again.');
+      return;
+    }
+    try {
+      addPhotoFromDataUrl(captureVideoFrame(cameraVideo));
+      stopSetupCamera();
+    } catch {
+      showToast('Could not capture photo — try Gallery instead.');
+    }
   }
 
   function collectCurrentStepValues() {
@@ -675,9 +714,6 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
       case 'test-type':
         state.testType = $('#setup-test-type')?.value || state.testType;
         state.testTypeOther = $('#setup-test-other')?.value || state.testTypeOther;
-        break;
-      case 'qnd':
-        state.unofficialQnd = $('#setup-qnd')?.value || state.unofficialQnd;
         break;
       case 'cad':
         state.cadVersion = $('#setup-cad')?.value || state.cadVersion;
@@ -749,7 +785,6 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
       <div class="setup-summary-grid">
         <div><span>Product</span><strong>${escapeHtml(state.productType)}</strong></div>
         <div><span>Test type</span><strong>${escapeHtml(testLabel)}</strong></div>
-        <div><span>Unofficial QND</span><strong>${escapeHtml(state.unofficialQnd)}</strong></div>
         <div><span>CAD version</span><strong>${escapeHtml(state.cadVersion)}</strong></div>
         <div class="setup-summary-wide"><span>Actuators</span><strong>${escapeHtml(state.actuators)}</strong></div>
         <div><span>Load applied</span><strong>${escapeHtml(state.loadApplied)}</strong></div>
@@ -767,7 +802,7 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
     contentEl.innerHTML = `
       <p class="setup-step-kicker">Setup complete</p>
       <h3 class="setup-step-title">All checks passed</h3>
-      <p class="card-desc">This setup record is ready. Share or start a new setup when needed.</p>
+      <p class="card-desc">This setup record is ready. Save a file for OneDrive or your database, then start a new setup when needed.</p>
     `;
     progressEl.innerHTML = SETUP_STEPS.map((step) => `
       <div class="setup-progress-step done" aria-current="false">
@@ -779,7 +814,22 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
     summaryCard.classList.remove('hidden');
     if (backBtn) backBtn.disabled = false;
     if (nextBtn) nextBtn.classList.add('hidden');
-    setValidation('Setup complete — timestamp recorded.', false);
+    setValidation('Setup complete — saving file with photos…', false);
+    autoSaveRecord();
+  }
+
+  async function autoSaveRecord() {
+    try {
+      await saveSetupRecord(state);
+      showToast('ZIP saved with Word report and photos — open on your laptop or upload to OneDrive.');
+    } catch {
+      try {
+        await downloadSetupWord(state);
+        showToast('Word document saved with photos.');
+      } catch {
+        showToast('Could not auto-save — tap Save ZIP file.');
+      }
+    }
   }
 
   function resetWizard() {
@@ -809,10 +859,34 @@ export function initTestSetupWizard({ $, on, showToast, escapeHtml, showView, op
     }
   }
 
+  function saveWordDocument() {
+    downloadSetupWord(state)
+      .then(() => showToast('Word document saved with photos.'))
+      .catch(() => showToast('Could not save Word document.'));
+  }
+
+  function saveZipRecord() {
+    saveSetupRecord(state)
+      .then(() => showToast('ZIP saved — includes photos folder and Word report.'))
+      .catch(() => showToast('Could not save ZIP file.'));
+  }
+
+  function saveJsonRecord() {
+    try {
+      downloadSetupJson(state);
+      showToast('JSON record saved for database import.');
+    } catch {
+      showToast('Could not save JSON record.');
+    }
+  }
+
   on(backBtn, 'click', goBack);
   on(nextBtn, 'click', goNext);
   on(newSetupBtn, 'click', resetWizard);
   on(shareSetupBtn, 'click', shareSummary);
+  on(saveWordBtn, 'click', saveWordDocument);
+  on(saveZipBtn, 'click', saveZipRecord);
+  on(saveJsonBtn, 'click', saveJsonRecord);
   on(fileInput, 'change', async (e) => {
     const file = e.target.files?.[0];
     if (file) await processPhotoFile(file);

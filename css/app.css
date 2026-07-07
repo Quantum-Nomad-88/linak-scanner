@@ -1365,7 +1365,7 @@ select:focus {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #000;
+  background: var(--surface-muted);
 }
 
 .setup-photo-thumb img {
@@ -1509,10 +1509,16 @@ select:focus {
   flex-direction: column;
 }
 
+.setup-camera-wrap.hidden {
+  display: none;
+}
+
 .setup-camera-wrap video {
   flex: 1;
   width: 100%;
-  object-fit: cover;
+  min-height: 0;
+  object-fit: contain;
+  background: #000;
 }
 
 .setup-camera-actions {
@@ -1548,4 +1554,12 @@ select:focus {
 
 .setup-load-card {
   margin: 0;
+}
+
+.setup-export-hint {
+  margin-top: 0.25rem;
+}
+
+.setup-export-actions {
+  margin-bottom: 0.35rem;
 }

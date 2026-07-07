@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=32" />
+  <link rel="stylesheet" href="css/app.css?v=34" />
 </head>
 <body>
   <header class="header">
@@ -311,9 +311,17 @@
           <p class="card-desc">Review the recorded setup before leaving this page.</p>
         </div>
         <div id="setup-summary-body"></div>
+        <p class="card-desc setup-export-hint">A ZIP file is saved automatically when setup completes. It includes the Word report, JSON data, and a photos folder for your laptop or OneDrive.</p>
+        <div class="btn-row setup-export-actions">
+          <button type="button" id="setup-save-zip-btn" class="btn primary">Save ZIP file</button>
+          <button type="button" id="setup-save-word-btn" class="btn">Save Word only</button>
+        </div>
+        <div class="btn-row setup-export-actions">
+          <button type="button" id="setup-save-json-btn" class="btn">Save JSON</button>
+          <button type="button" id="setup-share-btn" class="btn">Share summary</button>
+        </div>
         <div class="btn-row">
-          <button type="button" id="setup-share-btn" class="btn primary">Share summary</button>
-          <button type="button" id="setup-new-btn" class="btn">New setup</button>
+          <button type="button" id="setup-new-btn" class="btn full">New setup</button>
         </div>
       </div>
 
@@ -430,7 +438,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=37').catch(function (err) {
+    import('./js/app.js?v=40').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
