@@ -1,4 +1,5 @@
-.DS_Store
+.cloud-config.js
+js/cloud-config.local.js
 Thumbs.db
 *.log
 .idea/

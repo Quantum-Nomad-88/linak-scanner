@@ -295,6 +295,8 @@
         </div>
         <p id="cloud-config-status" class="cloud-config-status">Cloud upload not configured</p>
 
+        <p class="card-desc cloud-setup-required"><strong>First time only:</strong> In Supabase dashboard → Storage → create bucket <code>test-setup-records</code> (Public). Then SQL Editor → run the script in <code>supabase/schema.sql</code> in this repo.</p>
+
         <details class="cloud-setup-help">
           <summary>One-time setup (Supabase — free)</summary>
           <ol class="cloud-setup-steps">
@@ -493,7 +495,7 @@ create policy "anon_upload" on storage.objects
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=41').catch(function (err) {
+    import('./js/app.js?v=42').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'

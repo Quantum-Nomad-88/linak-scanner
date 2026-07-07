@@ -230,5 +230,10 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
   loadConfigIntoForm();
   renderRecords();
 
+  if (isCloudConfigured() && !localStorage.getItem(CONFIG_KEY)) {
+    saveCloudConfig(getCloudConfig());
+    loadConfigIntoForm();
+  }
+
   return { refreshRecords: renderRecords, renderStatus };
 }
