@@ -1,11 +1,10 @@
 /**
- * Default cloud config — no secrets here.
- * - Production: enter URL, key, and team code in the app (stored on device only).
- * - Local dev: copy cloud-config.example.js → cloud-config.local.js (gitignored).
+ * Default cloud config for simple onboarding.
+ * Users only need to enter the team access code in-app.
  */
 export const CLOUD_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://awmwsatggebkiwqvqkfm.supabase.co',
+  supabaseAnonKey: 'sb_publishable_82ypFWNaglD-kLejTMQYzg_ATAei93U',
   webhookUrl: '',
   teamAccessCode: '',
 };

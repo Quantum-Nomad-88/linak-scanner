@@ -3,6 +3,24 @@ import { getFileCloudConfig } from './cloud-config.js';
 const CONFIG_KEY = 'linak_cloud_config_v1';
 const BUCKET = 'test-setup-records';
 
+function encodeConnectionCode(payload) {
+  return btoa(JSON.stringify(payload));
+}
+
+function decodeConnectionCode(raw) {
+  const cleaned = String(raw || '').trim()
+    .replace(/^#setup-cloud=/, '');
+  if (!cleaned) return null;
+  const json = atob(decodeURIComponent(cleaned));
+  const parsed = JSON.parse(json);
+  return {
+    supabaseUrl: String(parsed.supabaseUrl || '').trim(),
+    supabaseAnonKey: String(parsed.supabaseAnonKey || '').trim(),
+    teamAccessCode: String(parsed.teamAccessCode || '').trim(),
+    webhookUrl: String(parsed.webhookUrl || '').trim(),
+  };
+}
+
 export function getCloudConfig() {
   try {
     const stored = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
@@ -25,6 +43,24 @@ export function saveCloudConfig(config) {
     webhookUrl: String(config.webhookUrl || '').trim(),
     teamAccessCode: String(config.teamAccessCode || '').trim(),
   }));
+}
+
+export function applyConnectionCode(rawCode) {
+  const config = decodeConnectionCode(rawCode);
+  if (!config) throw new Error('Connection code is empty.');
+  if (!(config.webhookUrl || (config.supabaseUrl && config.supabaseAnonKey && config.teamAccessCode))) {
+    throw new Error('Connection code is invalid.');
+  }
+  saveCloudConfig(config);
+  return config;
+}
+
+export function createConnectionCode() {
+  const config = getCloudConfig();
+  if (!(config.webhookUrl || (config.supabaseUrl && config.supabaseAnonKey && config.teamAccessCode))) {
+    throw new Error('Set cloud settings first, then generate a code.');
+  }
+  return encodeConnectionCode(config);
 }
 
 export function clearCloudConfig() {
@@ -188,6 +224,14 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
   const recordsWrap = $('#cloud-records-wrap');
   const recordsList = $('#cloud-records-list');
   const refreshBtn = $('#cloud-refresh-records-btn');
+  const generateCodeBtn = $('#cloud-generate-code-btn');
+  const connectionCodeEl = $('#cloud-connection-code');
+  const copyCodeBtn = $('#cloud-copy-code-btn');
+  const launchModalBtn = $('#cloud-open-connect-modal-btn');
+  const modal = $('#cloud-connect-modal');
+  const modalInput = $('#cloud-connect-code-input');
+  const modalApplyBtn = $('#cloud-connect-apply-btn');
+  const modalCloseBtn = $('#cloud-connect-close-btn');
 
   function renderStatus() {
     if (!statusEl) return;
@@ -214,6 +258,39 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     if (teamInput) teamInput.value = config.teamAccessCode;
     if (webhookInput) webhookInput.value = config.webhookUrl;
     renderStatus();
+  }
+
+  function hideConnectModal() {
+    modal?.classList.add('hidden');
+  }
+
+  function showConnectModal() {
+    modal?.classList.remove('hidden');
+    if (modalInput) {
+      modalInput.value = '';
+      modalInput.focus();
+    }
+  }
+
+  function applyCodeFromModal() {
+    try {
+      applyConnectionCode(modalInput?.value || '');
+      loadConfigIntoForm();
+      renderRecords();
+      hideConnectModal();
+      showToast('Connected. Cloud settings saved on this device.');
+    } catch (err) {
+      showToast(err.message || 'Invalid connection code.');
+    }
+  }
+
+  function renderConnectionCode() {
+    if (!connectionCodeEl) return;
+    try {
+      connectionCodeEl.value = createConnectionCode();
+    } catch {
+      connectionCodeEl.value = '';
+    }
   }
 
   async function renderRecords() {
@@ -283,6 +360,7 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     });
     loadConfigIntoForm();
     renderRecords();
+    renderConnectionCode();
     showToast('Cloud settings saved on this device only.');
   });
 
@@ -294,19 +372,52 @@ export function initCloudSyncUi({ $, on, showToast, escapeHtml }) {
     if (webhookInput) webhookInput.value = '';
     loadConfigIntoForm();
     renderRecords();
+    renderConnectionCode();
     showToast('Cloud settings cleared from this device.');
   });
 
   on(refreshBtn, 'click', renderRecords);
+  on(generateCodeBtn, 'click', () => {
+    renderConnectionCode();
+    if (connectionCodeEl?.value) showToast('Connection code generated.');
+  });
+  on(copyCodeBtn, 'click', async () => {
+    if (!connectionCodeEl?.value) {
+      showToast('Generate a code first.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(connectionCodeEl.value);
+      showToast('Connection code copied.');
+    } catch {
+      showToast('Could not copy connection code.');
+    }
+  });
+  on(launchModalBtn, 'click', showConnectModal);
+  on(modalApplyBtn, 'click', applyCodeFromModal);
+  on(modalCloseBtn, 'click', hideConnectModal);
+  on(modalInput, 'keydown', (e) => {
+    if (e.key === 'Enter') applyCodeFromModal();
+    if (e.key === 'Escape') hideConnectModal();
+  });
+  on(modal, 'click', (e) => {
+    if (e.target === modal) hideConnectModal();
+  });
 
   loadConfigIntoForm();
   renderRecords();
+  renderConnectionCode();
 
   const file = getFileCloudConfig();
   if (file.supabaseUrl && file.supabaseAnonKey && file.teamAccessCode && !localStorage.getItem(CONFIG_KEY)) {
     saveCloudConfig(file);
     loadConfigIntoForm();
     renderRecords();
+    renderConnectionCode();
+  }
+
+  if (!isCloudConfigured()) {
+    showConnectModal();
   }
 
   return { refreshRecords: renderRecords, renderStatus };

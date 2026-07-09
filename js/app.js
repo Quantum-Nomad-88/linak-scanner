@@ -23,6 +23,7 @@ import { renderBarBendingDiagram } from './bar-bending-diagram.js';
 import { initTestSetupWizard } from './test-setup-wizard.js';
 import { initFileCloudConfig } from './cloud-config.js';
 import { initCloudSyncUi, uploadSetupRecord, saveCloudConfig } from './cloud-sync.js';
+import { waitForVideoReady, captureVideoFrame } from './setup-photos.js';
 import {
   parseWeightInput,
   formatKg,
@@ -142,17 +143,7 @@ async function startCamera() {
     stopCameraBtn.classList.remove('hidden');
     cameraBtn.classList.add('hidden');
 
-    await new Promise((resolve, reject) => {
-      if (video.videoWidth > 0) {
-        resolve();
-        return;
-      }
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error('Video failed to load'));
-      setTimeout(() => resolve(), 3000);
-    });
-
-    await video.play();
+    await waitForVideoReady(video, 8000);
     startPreviewLoop();
     scanFrameHint?.classList.remove('hidden');
   } catch (err) {
@@ -178,16 +169,16 @@ function startPreviewLoop() {
   const paint = () => {
     if (!stream) return;
 
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    if (vw > 0 && vh > 0) {
-      if (previewCanvas.width !== vw || previewCanvas.height !== vh) {
-        previewCanvas.width = vw;
-        previewCanvas.height = vh;
+    const cw = previewCanvas.clientWidth;
+    const ch = previewCanvas.clientHeight;
+    if (cw > 0 && ch > 0) {
+      if (previewCanvas.width !== cw || previewCanvas.height !== ch) {
+        previewCanvas.width = cw;
+        previewCanvas.height = ch;
       }
       const ctx = previewCanvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, vw, vh);
-      drawMaskOverlay(ctx, vw, vh, getMaskForMode(getScanMode()));
+      ctx.clearRect(0, 0, cw, ch);
+      drawMaskOverlay(ctx, cw, ch, getMaskForMode(getScanMode()));
     }
 
     previewRaf = requestAnimationFrame(paint);
@@ -212,9 +203,20 @@ function stopCamera() {
 
 async function captureFromCamera() {
   if (!stream) return;
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+  if (!video.videoWidth || !video.videoHeight) {
+    showToast('Camera not ready yet — wait a moment and retry.');
+    return;
+  }
+  const frame = captureVideoFrame(video);
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = frame;
+  });
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext('2d').drawImage(img, 0, 0);
   stopCamera();
   await runOcrOnCapture(canvas);
 }

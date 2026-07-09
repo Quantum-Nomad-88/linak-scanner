@@ -39,7 +39,6 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
   -webkit-font-smoothing: antialiased;
 }
 
@@ -83,7 +82,7 @@ body {
 
 /* Layout */
 .main {
-  padding: 1rem;
+  padding: 1rem 1rem calc(var(--nav-h) + 1.25rem + env(safe-area-inset-bottom));
   max-width: 560px;
   margin: 0 auto;
 }
@@ -247,19 +246,23 @@ body {
 
 .camera-source {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #111;
+  z-index: 1;
 }
 
 .camera-preview {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: min(48vh, 380px);
-  object-fit: cover;
-  background: #111;
+  height: 100%;
+  background: transparent;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .scan-frame-hint-bar {
@@ -1655,4 +1658,30 @@ select:focus {
 
 .cloud-settings-actions .btn {
   flex: 1;
+}
+
+.cloud-connect-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+.cloud-connect-sheet {
+  width: min(560px, 100%);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  padding: 1rem;
+}
+
+.cloud-connect-sheet h2 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
 }

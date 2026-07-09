@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=35" />
+  <link rel="stylesheet" href="css/app.css?v=37" />
 </head>
 <body>
   <header class="header">
@@ -291,7 +291,7 @@
       <div class="card cloud-settings-card">
         <div class="card-head">
           <h2>Cloud storage</h2>
-          <p class="card-desc">Keys are stored on this device only — never in the public GitHub repo. Files use a private bucket and team access code.</p>
+          <p class="card-desc">Quick connect: just enter your team access code and tap Save. URL/key are preloaded in the app.</p>
         </div>
         <p id="cloud-config-status" class="cloud-config-status">Cloud upload not configured</p>
 
@@ -302,17 +302,20 @@
           <ol class="cloud-setup-steps">
             <li>Storage → New bucket → <code>test-setup-records</code> → keep <strong>private</strong></li>
             <li>SQL Editor → open <code>supabase/schema.sql</code> → replace <code>YOUR_TEAM_ACCESS_CODE</code> with a long random password → Run</li>
-            <li>Project Settings → API → copy URL and anon/publishable key into the fields below</li>
+            <li>Project Settings → API → only needed if you want to override defaults</li>
             <li>Enter the <strong>same team access code</strong> in the app on each device (phone and PC)</li>
           </ol>
           <p class="card-desc">Optional: Power Automate webhook saves to OneDrive without Supabase.</p>
         </details>
 
-        <label class="field-label" for="cloud-supabase-url">Supabase project URL</label>
-        <input type="url" id="cloud-supabase-url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
+        <details class="cloud-setup-help">
+          <summary>Advanced (override Supabase URL/key)</summary>
+          <label class="field-label" for="cloud-supabase-url">Supabase project URL</label>
+          <input type="url" id="cloud-supabase-url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
 
-        <label class="field-label" for="cloud-supabase-key">Supabase API key</label>
-        <input type="password" id="cloud-supabase-key" placeholder="Publishable or anon key" autocomplete="off" />
+          <label class="field-label" for="cloud-supabase-key">Supabase API key</label>
+          <input type="password" id="cloud-supabase-key" placeholder="Publishable or anon key" autocomplete="off" />
+        </details>
 
         <label class="field-label" for="cloud-team-code">Team access code</label>
         <input type="password" id="cloud-team-code" placeholder="Same code as in supabase/schema.sql" autocomplete="off" />
@@ -324,6 +327,14 @@
           <button type="button" id="cloud-save-config-btn" class="btn primary">Save on this device</button>
           <button type="button" id="cloud-clear-config-btn" class="btn">Clear</button>
         </div>
+
+        <label class="field-label" for="cloud-connection-code">Connection code (share to another device)</label>
+        <textarea id="cloud-connection-code" rows="3" readonly placeholder="Generate code after saving cloud settings"></textarea>
+        <div class="cloud-settings-actions">
+          <button type="button" id="cloud-generate-code-btn" class="btn">Generate code</button>
+          <button type="button" id="cloud-copy-code-btn" class="btn">Copy code</button>
+        </div>
+        <button type="button" id="cloud-open-connect-modal-btn" class="btn full">Connect this device with a code</button>
       </div>
 
       <div id="cloud-records-wrap" class="card hidden">
@@ -447,6 +458,19 @@
 
   <div id="toast" class="toast"></div>
 
+  <div id="cloud-connect-modal" class="cloud-connect-modal hidden" role="dialog" aria-modal="true" aria-label="Connect cloud storage">
+    <div class="cloud-connect-sheet">
+      <h2>Connect cloud storage</h2>
+      <p class="card-desc">Paste your connection code once and this device will connect automatically.</p>
+      <label class="field-label" for="cloud-connect-code-input">Connection code</label>
+      <textarea id="cloud-connect-code-input" rows="5" placeholder="Paste code here"></textarea>
+      <div class="cloud-settings-actions">
+        <button type="button" id="cloud-connect-apply-btn" class="btn primary">Connect</button>
+        <button type="button" id="cloud-connect-close-btn" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="boot-error" class="boot-error hidden" role="alert">
     <strong>App failed to load.</strong>
     <p id="boot-error-msg">Try clearing site data for this page, then reload.</p>
@@ -485,7 +509,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module">
-    import('./js/app.js?v=44').catch(function (err) {
+    import('./js/app.js?v=47').catch(function (err) {
       console.error('LINAK app boot failed:', err);
       window.__linakShowBootError?.(
         'Could not load app (' + (err && err.message ? err.message : 'unknown error') + '). Clear site data and reload.'
